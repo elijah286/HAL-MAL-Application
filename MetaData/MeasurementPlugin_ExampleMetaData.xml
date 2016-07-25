@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='windows-1252' standalone='yes'?>
+<MetaData>
+
+<ProjectTemplate>
+  <Title>Measurement System</Title>
+  <Description>This project is implemented using the Actor Framework and illustrates an architecture that abstracts the implementation of measurements using a plugin approach. </Description>
+  <DocumentationPath>Measurement Utility.docx</DocumentationPath>
+  <Filters>Demonstrations:Architecture</Filters>
+  <LocationPath>Framework</LocationPath>
+  <LocationPath>Measurement Utility</LocationPath>
+  <ListboxImagePath>images/blankproj.png</ListboxImagePath>
+  <ProjectPath>Networked Measurement System.lvproj</ProjectPath>
+  <SortPriority>500</SortPriority>
+</ProjectTemplate>
+
+</MetaData>

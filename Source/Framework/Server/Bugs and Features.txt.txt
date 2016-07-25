@@ -1,0 +1,6 @@
+CAR 100: UI Doesn't handle start / stop toggling correctly if measurement selected
+CAR 101: Server config doesn't allow user-defined ports
+CAR 102: Measurement doesn't store result in private data
+CAR 103: If progress bar 'X' is clicked before complete it is not shut down correctly
+CAR 104: If an error occurs while progress bar is running, it does not have the ability to send a 'stop' command
+CAR 105: Rapidly clicking 'start' / 'stop' will click another button as it moves (because stop button is moved temporarily to where it is)
