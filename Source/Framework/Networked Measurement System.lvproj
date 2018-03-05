@@ -1,5 +1,5 @@
 ﻿<?xml version='1.0' encoding='UTF-8'?>
-<Project Type="Project" LVVersion="15008000">
+<Project Type="Project" LVVersion="16008000">
 	<Property Name="CCSymbols" Type="Str"></Property>
 	<Property Name="NI.LV.All.SourceOnly" Type="Bool">true</Property>
 	<Property Name="NI.Project.Description" Type="Str"></Property>
@@ -57,72 +57,6 @@
 			<Item Name="Client UI.lvlib" Type="Library" URL="../Client/UI/Client UI.lvlib"/>
 			<Item Name="Client LNA.lvlib" Type="Library" URL="../Client/Client LNA/Client LNA.lvlib"/>
 		</Item>
-		<Item Name="Include In Build" Type="Folder">
-			<Item Name="user.lib" Type="Folder">
-				<Item Name="Configuration.lvlib" Type="Library" URL="/&lt;userlib&gt;/Configuration Dialog Actor/Configuration.lvlib"/>
-				<Item Name="Controller Actor.lvlib" Type="Library" URL="/&lt;userlib&gt;/Common Components/Controller/Controller Actor.lvlib"/>
-				<Item Name="Hardware.lvlib" Type="Library" URL="/&lt;userlib&gt;/Common Components/Hardware/Hardware.lvlib"/>
-				<Item Name="Measurement Actor.lvlib" Type="Library" URL="/&lt;userlib&gt;/Common Components/Measurement Actor/Measurement Actor.lvlib"/>
-				<Item Name="Result Actor.lvlib" Type="Library" URL="/&lt;userlib&gt;/Common Components/Results/Result Actor.lvlib"/>
-				<Item Name="Generic UI Actor.lvlib" Type="Library" URL="/&lt;userlib&gt;/Common Components/User Interface/Generic UI Actor.lvlib"/>
-				<Item Name="Linked Network Actor.lvlib" Type="Library" URL="/&lt;vilib&gt;/NI/Actors/Linked Network Actor/Linked Network Actor.lvlib"/>
-				<Item Name="Msmt Configuration.lvlib" Type="Library" URL="/&lt;userlib&gt;/Common Components/Msmt Configuration/Msmt Configuration.lvlib"/>
-				<Item Name="Measurement UI.lvlib" Type="Library" URL="/&lt;userlib&gt;/Common Components/Msmt UI/Measurement UI.lvlib"/>
-			</Item>
-			<Item Name="vi.lib" Type="Folder">
-				<Item Name="Actor Framework.lvlib" Type="Library" URL="/&lt;vilib&gt;/ActorFramework/Actor Framework.lvlib"/>
-				<Item Name="Report Error Msg.lvclass" Type="LVClass" URL="/&lt;vilib&gt;/ActorFramework/Report Error Msg/Report Error Msg.lvclass"/>
-			</Item>
-		</Item>
-		<Item Name="Sample Measurements" Type="Folder">
-			<Item Name="Diode IV" Type="Folder">
-				<Item Name="Results" Type="Folder">
-					<Item Name="I-V Report" Type="Folder"/>
-				</Item>
-				<Item Name="Diode Characterization.lvlib" Type="Library" URL="../Measurements/Diode IV/Diode Characterization.lvlib"/>
-			</Item>
-			<Item Name="Resistance" Type="Folder">
-				<Item Name="Resistance.lvlib" Type="Library" URL="../Measurements/Resistance/Resistance.lvlib"/>
-			</Item>
-			<Item Name="Strain" Type="Folder">
-				<Item Name="Strain.lvlib" Type="Library" URL="../Measurements/Strain/Strain.lvlib"/>
-			</Item>
-			<Item Name="Frequency" Type="Folder">
-				<Item Name="Results" Type="Folder">
-					<Item Name="Freq Result" Type="Folder"/>
-				</Item>
-				<Item Name="Frequency Measurement.lvlib" Type="Library" URL="../Measurements/Voltage/Frequency Measurement.lvlib"/>
-			</Item>
-			<Item Name="Sample Measurements.lvproj" Type="Document" URL="../Measurements/Sample Measurements.lvproj"/>
-		</Item>
-		<Item Name="Sample Hardware" Type="Folder">
-			<Item Name="Agilent 34401a" Type="Folder">
-				<Item Name="Agilent 34401a.lvclass" Type="LVClass" URL="../Hardware/Agilent 34401a/Agilent 34401a.lvclass"/>
-			</Item>
-			<Item Name="images" Type="Folder">
-				<Item Name="blankproj.png" Type="Document" URL="../Hardware/images/blankproj.png"/>
-			</Item>
-			<Item Name="PXI 4070" Type="Folder">
-				<Item Name="PXI 4070.lvclass" Type="LVClass" URL="../Hardware/PXI 4070/PXI 4070.lvclass"/>
-			</Item>
-			<Item Name="PXI 4110" Type="Folder">
-				<Item Name="PXI 4110.lvclass" Type="LVClass" URL="../Hardware/PXI 4110/PXI 4110.lvclass"/>
-			</Item>
-			<Item Name="PXIe 5185" Type="Folder">
-				<Item Name="PXIe 5185.lvclass" Type="LVClass" URL="../Hardware/PXIe 5185/PXIe 5185.lvclass"/>
-			</Item>
-			<Item Name="Simulated DMM" Type="Folder">
-				<Item Name="Simulated DMM.lvclass" Type="LVClass" URL="../Hardware/Simulated DMM/Simulated DMM.lvclass"/>
-			</Item>
-			<Item Name="Simulated FGEN" Type="Folder">
-				<Item Name="Simulated Function Generator.lvclass" Type="LVClass" URL="../Hardware/Simulated FGEN/Simulated Function Generator.lvclass"/>
-			</Item>
-			<Item Name="Simulated Scope" Type="Folder">
-				<Item Name="Simulated Scope.lvclass" Type="LVClass" URL="../Hardware/Simulated Scope/Simulated Scope.lvclass"/>
-			</Item>
-			<Item Name="Sample Hardware.lvproj" Type="Document" URL="../Hardware/Sample Hardware.lvproj"/>
-		</Item>
-		<Item Name="Find EXE Root.vi" Type="VI" URL="../Find EXE Root.vi"/>
 		<Item Name="Measurement Utility Instructions.pdf" Type="Document" URL="../Measurement Utility Instructions.pdf"/>
 		<Item Name="Dependencies" Type="Dependencies">
 			<Item Name="user.lib" Type="Folder">
@@ -180,11 +114,6 @@
 				<Item Name="Array to Array of VData__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/lvdata/lvdata.llb/Array to Array of VData__ogtk.vi"/>
 				<Item Name="Write Section Cluster__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/variantconfig/variantconfig.llb/Write Section Cluster__ogtk.vi"/>
 				<Item Name="Current VIs Parents Ref__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/appcontrol/appcontrol.llb/Current VIs Parents Ref__ogtk.vi"/>
-				<Item Name="Strip Path Extension__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/file/file.llb/Strip Path Extension__ogtk.vi"/>
-				<Item Name="Strip Path Extension - Path__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/file/file.llb/Strip Path Extension - Path__ogtk.vi"/>
-				<Item Name="Strip Path Extension - String__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/file/file.llb/Strip Path Extension - String__ogtk.vi"/>
-				<Item Name="Strip Path Extension - 1D Array of Paths__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/file/file.llb/Strip Path Extension - 1D Array of Paths__ogtk.vi"/>
-				<Item Name="Strip Path Extension - 1D Array of Strings__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/file/file.llb/Strip Path Extension - 1D Array of Strings__ogtk.vi"/>
 				<Item Name="File Exists__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/file/file.llb/File Exists__ogtk.vi"/>
 				<Item Name="File Exists - Scalar__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/file/file.llb/File Exists - Scalar__ogtk.vi"/>
 				<Item Name="File Exists - Array__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/file/file.llb/File Exists - Array__ogtk.vi"/>
@@ -438,10 +367,19 @@
 				<Item Name="Strip Path__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/file/file.llb/Strip Path__ogtk.vi"/>
 				<Item Name="Strip Path - Arrays__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/file/file.llb/Strip Path - Arrays__ogtk.vi"/>
 				<Item Name="Strip Path - Traditional__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/file/file.llb/Strip Path - Traditional__ogtk.vi"/>
+				<Item Name="Configuration.lvlib" Type="Library" URL="/&lt;userlib&gt;/Configuration Dialog Actor/Configuration.lvlib"/>
+				<Item Name="Measurement UI.lvclass" Type="LVClass" URL="/&lt;userlib&gt;/Common Components/Msmt UI/Measurement UI.lvclass"/>
+				<Item Name="Controller Configuration.lvclass" Type="LVClass" URL="/&lt;userlib&gt;/Common Components/Msmt Configuration/Controller Configuration.lvclass"/>
+				<Item Name="Controller.lvclass" Type="LVClass" URL="/&lt;userlib&gt;/Common Components/Controller/Controller.lvclass"/>
+				<Item Name="Strip Path Extension__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/file/file.llb/Strip Path Extension__ogtk.vi"/>
+				<Item Name="Strip Path Extension - Path__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/file/file.llb/Strip Path Extension - Path__ogtk.vi"/>
+				<Item Name="Strip Path Extension - String__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/file/file.llb/Strip Path Extension - String__ogtk.vi"/>
+				<Item Name="Strip Path Extension - 1D Array of Paths__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/file/file.llb/Strip Path Extension - 1D Array of Paths__ogtk.vi"/>
+				<Item Name="Strip Path Extension - 1D Array of Strings__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/file/file.llb/Strip Path Extension - 1D Array of Strings__ogtk.vi"/>
+				<Item Name="Search or Split String__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/string/string.llb/Search or Split String__ogtk.vi"/>
 			</Item>
 			<Item Name="vi.lib" Type="Folder">
 				<Item Name="Error Cluster From Error Code.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/error.llb/Error Cluster From Error Code.vi"/>
-				<Item Name="LVRowAndColumnTypeDef.ctl" Type="VI" URL="/&lt;vilib&gt;/Utility/miscctls.llb/LVRowAndColumnTypeDef.ctl"/>
 				<Item Name="LVRowAndColumnUnsignedTypeDef.ctl" Type="VI" URL="/&lt;vilib&gt;/Utility/miscctls.llb/LVRowAndColumnUnsignedTypeDef.ctl"/>
 				<Item Name="Space Constant.vi" Type="VI" URL="/&lt;vilib&gt;/dlg_ctls.llb/Space Constant.vi"/>
 				<Item Name="Recursive File List.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/libraryn.llb/Recursive File List.vi"/>
@@ -458,7 +396,6 @@
 				<Item Name="Flush And Wait Empty Condition.ctl" Type="VI" URL="/&lt;vilib&gt;/dex/Flush And Wait Empty Condition.ctl"/>
 				<Item Name="Get LV Class Path.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/LVClass/Get LV Class Path.vi"/>
 				<Item Name="Get File System Separator.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/sysinfo.llb/Get File System Separator.vi"/>
-				<Item Name="usereventprio.ctl" Type="VI" URL="/&lt;vilib&gt;/event_ctls.llb/usereventprio.ctl"/>
 				<Item Name="System Directory Type.ctl" Type="VI" URL="/&lt;vilib&gt;/Utility/sysdir.llb/System Directory Type.ctl"/>
 				<Item Name="Get System Directory.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/sysdir.llb/Get System Directory.vi"/>
 				<Item Name="subFile Dialog.vi" Type="VI" URL="/&lt;vilib&gt;/express/express input/FileDialogBlock.llb/subFile Dialog.vi"/>
@@ -515,56 +452,29 @@
 				<Item Name="Guid Generator.vi" Type="VI" URL="/&lt;vilib&gt;/National Instruments/GUID Generator/Guid Generator.vi"/>
 				<Item Name="TCP Write String.vi" Type="VI" URL="/&lt;vilib&gt;/National Instruments/TCP - IP Functions/TCP Write String.vi"/>
 				<Item Name="TCP Read String.vi" Type="VI" URL="/&lt;vilib&gt;/National Instruments/TCP - IP Functions/TCP Read String.vi"/>
-				<Item Name="LVAnnotationListTypeDef.ctl" Type="VI" URL="/&lt;vilib&gt;/Utility/miscctls.llb/LVAnnotationListTypeDef.ctl"/>
-				<Item Name="LVCursorListTypeDef.ctl" Type="VI" URL="/&lt;vilib&gt;/Utility/miscctls.llb/LVCursorListTypeDef.ctl"/>
-				<Item Name="Ex_Extract Single Tone.vi" Type="VI" URL="/&lt;vilib&gt;/express/express analysis/ToneBlock.llb/Ex_Extract Single Tone.vi"/>
-				<Item Name="ex_Modify Signal Name.vi" Type="VI" URL="/&lt;vilib&gt;/express/express shared/ex_Modify Signal Name.vi"/>
-				<Item Name="NI_MAPro.lvlib" Type="Library" URL="/&lt;vilib&gt;/measure/NI_MAPro.lvlib"/>
-				<Item Name="NI_MABase.lvlib" Type="Library" URL="/&lt;vilib&gt;/measure/NI_MABase.lvlib"/>
-				<Item Name="NI_AALBase.lvlib" Type="Library" URL="/&lt;vilib&gt;/Analysis/NI_AALBase.lvlib"/>
-				<Item Name="NI_AALPro.lvlib" Type="Library" URL="/&lt;vilib&gt;/Analysis/NI_AALPro.lvlib"/>
-				<Item Name="Move t0 to the end.vi" Type="VI" URL="/&lt;vilib&gt;/express/express shared/transition.llb/Move t0 to the end.vi"/>
-				<Item Name="subAmplitudeMeasure.vi" Type="VI" URL="/&lt;vilib&gt;/express/express analysis/AmpandLevelBlock.llb/subAmplitudeMeasure.vi"/>
-				<Item Name="ex_Modify Signals Names.vi" Type="VI" URL="/&lt;vilib&gt;/express/express shared/ex_Modify Signals Names.vi"/>
-				<Item Name="Express DC-RMS.vi" Type="VI" URL="/&lt;vilib&gt;/express/express analysis/AmpandLevelBlock.llb/Express DC-RMS.vi"/>
-				<Item Name="Check for Equality.vi" Type="VI" URL="/&lt;vilib&gt;/Waveform/WDTOps.llb/Check for Equality.vi"/>
-				<Item Name="Express Voltage Measurements.vi" Type="VI" URL="/&lt;vilib&gt;/express/express shared/Express Voltage Measurements.vi"/>
-				<Item Name="Waveform Min Max.vi" Type="VI" URL="/&lt;vilib&gt;/Waveform/WDTOps.llb/Waveform Min Max.vi"/>
-				<Item Name="Express Cycle RMS.vi" Type="VI" URL="/&lt;vilib&gt;/express/express analysis/AmpandLevelConfig.llb/Express Cycle RMS.vi"/>
-				<Item Name="DU64_U32AddWithOverflow.vi" Type="VI" URL="/&lt;vilib&gt;/Waveform/TSOps.llb/DU64_U32AddWithOverflow.vi"/>
-				<Item Name="Timestamp Add.vi" Type="VI" URL="/&lt;vilib&gt;/Waveform/TSOps.llb/Timestamp Add.vi"/>
-				<Item Name="ex_WaveformAttribs.ctl" Type="VI" URL="/&lt;vilib&gt;/express/express shared/transition.llb/ex_WaveformAttribs.ctl"/>
-				<Item Name="ex_SetAllExpressAttribs.vi" Type="VI" URL="/&lt;vilib&gt;/express/express shared/transition.llb/ex_SetAllExpressAttribs.vi"/>
-				<Item Name="ex_WaveformAttribsPlus.ctl" Type="VI" URL="/&lt;vilib&gt;/express/express shared/transition.llb/ex_WaveformAttribsPlus.ctl"/>
-				<Item Name="ex_SetExpAttribsAndT0.vi" Type="VI" URL="/&lt;vilib&gt;/express/express shared/transition.llb/ex_SetExpAttribsAndT0.vi"/>
-				<Item Name="subUserDefinedVals.vi" Type="VI" URL="/&lt;vilib&gt;/express/express input/SimulateArbSignalBlock.llb/subUserDefinedVals.vi"/>
 				<Item Name="FormatTime String.vi" Type="VI" URL="/&lt;vilib&gt;/express/express execution control/ElapsedTimeBlock.llb/FormatTime String.vi"/>
 				<Item Name="subElapsedTime.vi" Type="VI" URL="/&lt;vilib&gt;/express/express execution control/ElapsedTimeBlock.llb/subElapsedTime.vi"/>
 				<Item Name="Get LV Class Name.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/LVClass/Get LV Class Name.vi"/>
-				<Item Name="Dynamic To Waveform Array.vi" Type="VI" URL="/&lt;vilib&gt;/express/express shared/transition.llb/Dynamic To Waveform Array.vi"/>
-				<Item Name="Timestamp Subtract.vi" Type="VI" URL="/&lt;vilib&gt;/Waveform/TSOps.llb/Timestamp Subtract.vi"/>
-				<Item Name="I128 Timestamp.ctl" Type="VI" URL="/&lt;vilib&gt;/Waveform/TSOps.llb/I128 Timestamp.ctl"/>
-				<Item Name="DU64_U32SubtractWithBorrow.vi" Type="VI" URL="/&lt;vilib&gt;/Waveform/TSOps.llb/DU64_U32SubtractWithBorrow.vi"/>
-				<Item Name="Waveform Array To Dynamic.vi" Type="VI" URL="/&lt;vilib&gt;/express/express shared/transition.llb/Waveform Array To Dynamic.vi"/>
 				<Item Name="Time-Delay Override Options.ctl" Type="VI" URL="/&lt;vilib&gt;/ActorFramework/Time-Delayed Send Message/Time-Delay Override Options.ctl"/>
 				<Item Name="General Error Handler Core CORE.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/error.llb/General Error Handler Core CORE.vi"/>
 				<Item Name="LVRectTypeDef.ctl" Type="VI" URL="/&lt;vilib&gt;/Utility/miscctls.llb/LVRectTypeDef.ctl"/>
-			</Item>
-			<Item Name="instr.lib" Type="Folder">
-				<Item Name="Agilent 34401.lvlib" Type="Library" URL="/&lt;instrlib&gt;/Agilent 34401/Agilent 34401.lvlib"/>
+				<Item Name="Linked Network Actor.lvlib" Type="Library" URL="/&lt;vilib&gt;/NI/Actors/Linked Network Actor/Linked Network Actor.lvlib"/>
+				<Item Name="Actor Framework.lvlib" Type="Library" URL="/&lt;vilib&gt;/ActorFramework/Actor Framework.lvlib"/>
+				<Item Name="Report Error Msg.lvclass" Type="LVClass" URL="/&lt;vilib&gt;/ActorFramework/Report Error Msg/Report Error Msg.lvclass"/>
+				<Item Name="usereventprio.ctl" Type="VI" URL="/&lt;vilib&gt;/event_ctls.llb/usereventprio.ctl"/>
+				<Item Name="LVRowAndColumnTypeDef.ctl" Type="VI" URL="/&lt;vilib&gt;/Utility/miscctls.llb/LVRowAndColumnTypeDef.ctl"/>
 			</Item>
 			<Item Name="mscorlib" Type="VI" URL="mscorlib">
 				<Property Name="NI.PreserveRelativePath" Type="Bool">true</Property>
 			</Item>
-			<Item Name="lvanlys.dll" Type="Document" URL="/&lt;resource&gt;/lvanlys.dll"/>
 			<Item Name="AF Debug.lvlib" Type="Library" URL="/&lt;resource&gt;/AFDebug/AF Debug.lvlib"/>
-			<Item Name="Controller Actor.lvlib" Type="Library" URL="../../../../Msmt-Framework/user.lib/Common Components/Controller/Controller Actor.lvlib"/>
-			<Item Name="Generic UI Actor.lvlib" Type="Library" URL="../../../../Msmt-Framework/user.lib/Common Components/User Interface/Generic UI Actor.lvlib"/>
-			<Item Name="Measurement UI.lvlib" Type="Library" URL="../../../../Msmt-Framework/user.lib/Common Components/Msmt UI/Measurement UI.lvlib"/>
-			<Item Name="Msmt Configuration.lvlib" Type="Library" URL="../../../../Msmt-Framework/user.lib/Common Components/Msmt Configuration/Msmt Configuration.lvlib"/>
-			<Item Name="Measurement Actor.lvlib" Type="Library" URL="../../../../Msmt-Framework/user.lib/Common Components/Measurement Actor/Measurement Actor.lvlib"/>
-			<Item Name="Hardware.lvlib" Type="Library" URL="../../../../Msmt-Framework/user.lib/Common Components/Hardware/Hardware.lvlib"/>
-			<Item Name="Result Actor.lvlib" Type="Library" URL="../../../../Msmt-Framework/user.lib/Common Components/Results/Result Actor.lvlib"/>
+			<Item Name="Generic UI Actor.lvlib" Type="Library" URL="../../../../MAL-Framework/user.lib/Common Components/User Interface/Generic UI Actor.lvlib"/>
+			<Item Name="Measurement UI.lvlib" Type="Library" URL="../../../../MAL-Framework/user.lib/Common Components/Msmt UI/Measurement UI.lvlib"/>
+			<Item Name="Controller Actor.lvlib" Type="Library" URL="../../../../MAL-Framework/user.lib/Common Components/Controller/Controller Actor.lvlib"/>
+			<Item Name="Hardware.lvlib" Type="Library" URL="../../../../MAL-Framework/user.lib/Common Components/Hardware/Hardware.lvlib"/>
+			<Item Name="Measurement Actor.lvlib" Type="Library" URL="../../../../MAL-Framework/user.lib/Common Components/Measurement Actor/Measurement Actor.lvlib"/>
+			<Item Name="Result Actor.lvlib" Type="Library" URL="../../../../MAL-Framework/user.lib/Common Components/Results/Result Actor.lvlib"/>
+			<Item Name="Msmt Configuration.lvlib" Type="Library" URL="../../../../MAL-Framework/user.lib/Common Components/Msmt Configuration/Msmt Configuration.lvlib"/>
 		</Item>
 		<Item Name="Build Specifications" Type="Build">
 			<Item Name="Client EXE" Type="EXE">
@@ -596,13 +506,13 @@
 				<Property Name="Source[1].sourceInclusion" Type="Str">TopLevel</Property>
 				<Property Name="Source[1].type" Type="Str">VI</Property>
 				<Property Name="Source[10].Container.applyProperties" Type="Bool">true</Property>
-				<Property Name="Source[10].itemID" Type="Ref">/My Computer/Sample Measurements</Property>
+				<Property Name="Source[10].itemID" Type="Ref"></Property>
 				<Property Name="Source[10].properties[0].type" Type="Str">Allow debugging</Property>
 				<Property Name="Source[10].properties[0].value" Type="Bool">false</Property>
 				<Property Name="Source[10].propertiesCount" Type="Int">1</Property>
 				<Property Name="Source[10].type" Type="Str">Container</Property>
 				<Property Name="Source[11].Container.applyProperties" Type="Bool">true</Property>
-				<Property Name="Source[11].itemID" Type="Ref">/My Computer/Sample Hardware</Property>
+				<Property Name="Source[11].itemID" Type="Ref"></Property>
 				<Property Name="Source[11].properties[0].type" Type="Str">Allow debugging</Property>
 				<Property Name="Source[11].properties[0].value" Type="Bool">false</Property>
 				<Property Name="Source[11].propertiesCount" Type="Int">1</Property>
@@ -610,12 +520,12 @@
 				<Property Name="Source[2].Container.applyDestination" Type="Bool">true</Property>
 				<Property Name="Source[2].Container.applyInclusion" Type="Bool">true</Property>
 				<Property Name="Source[2].destinationIndex" Type="Int">0</Property>
-				<Property Name="Source[2].itemID" Type="Ref">/My Computer/Include In Build/user.lib</Property>
+				<Property Name="Source[2].itemID" Type="Ref"></Property>
 				<Property Name="Source[2].sourceInclusion" Type="Str">Include</Property>
 				<Property Name="Source[2].type" Type="Str">Container</Property>
 				<Property Name="Source[3].Container.applyInclusion" Type="Bool">true</Property>
 				<Property Name="Source[3].destinationIndex" Type="Int">0</Property>
-				<Property Name="Source[3].itemID" Type="Ref">/My Computer/Include In Build/vi.lib</Property>
+				<Property Name="Source[3].itemID" Type="Ref"></Property>
 				<Property Name="Source[3].sourceInclusion" Type="Str">Include</Property>
 				<Property Name="Source[3].type" Type="Str">Container</Property>
 				<Property Name="Source[4].destinationIndex" Type="Int">0</Property>
@@ -644,7 +554,7 @@
 				<Property Name="Source[8].propertiesCount" Type="Int">1</Property>
 				<Property Name="Source[8].type" Type="Str">Container</Property>
 				<Property Name="Source[9].Container.applyProperties" Type="Bool">true</Property>
-				<Property Name="Source[9].itemID" Type="Ref">/My Computer/Include In Build</Property>
+				<Property Name="Source[9].itemID" Type="Ref"></Property>
 				<Property Name="Source[9].properties[0].type" Type="Str">Allow debugging</Property>
 				<Property Name="Source[9].properties[0].value" Type="Bool">false</Property>
 				<Property Name="Source[9].propertiesCount" Type="Int">1</Property>
@@ -695,7 +605,7 @@
 				<Property Name="Source[1].sourceInclusion" Type="Str">TopLevel</Property>
 				<Property Name="Source[1].type" Type="Str">VI</Property>
 				<Property Name="Source[10].Container.applyProperties" Type="Bool">true</Property>
-				<Property Name="Source[10].itemID" Type="Ref">/My Computer/Include In Build</Property>
+				<Property Name="Source[10].itemID" Type="Ref"></Property>
 				<Property Name="Source[10].properties[0].type" Type="Str">Allow debugging</Property>
 				<Property Name="Source[10].properties[0].value" Type="Bool">false</Property>
 				<Property Name="Source[10].propertiesCount" Type="Int">1</Property>
@@ -729,12 +639,12 @@
 				<Property Name="Source[14].type" Type="Str">Library</Property>
 				<Property Name="Source[2].Container.applyInclusion" Type="Bool">true</Property>
 				<Property Name="Source[2].destinationIndex" Type="Int">0</Property>
-				<Property Name="Source[2].itemID" Type="Ref">/My Computer/Include In Build/user.lib</Property>
+				<Property Name="Source[2].itemID" Type="Ref"></Property>
 				<Property Name="Source[2].sourceInclusion" Type="Str">Include</Property>
 				<Property Name="Source[2].type" Type="Str">Container</Property>
 				<Property Name="Source[3].Container.applyInclusion" Type="Bool">true</Property>
 				<Property Name="Source[3].destinationIndex" Type="Int">0</Property>
-				<Property Name="Source[3].itemID" Type="Ref">/My Computer/Include In Build/vi.lib</Property>
+				<Property Name="Source[3].itemID" Type="Ref"></Property>
 				<Property Name="Source[3].sourceInclusion" Type="Str">Include</Property>
 				<Property Name="Source[3].type" Type="Str">Container</Property>
 				<Property Name="Source[4].destinationIndex" Type="Int">0</Property>
@@ -813,13 +723,13 @@
 				<Property Name="Source[1].itemID" Type="Ref">/My Computer/Client/Client Controller.lvlib/Client Controller.lvclass/main.vi</Property>
 				<Property Name="Source[1].type" Type="Str">VI</Property>
 				<Property Name="Source[10].Container.applyProperties" Type="Bool">true</Property>
-				<Property Name="Source[10].itemID" Type="Ref">/My Computer/Sample Measurements</Property>
+				<Property Name="Source[10].itemID" Type="Ref"></Property>
 				<Property Name="Source[10].properties[0].type" Type="Str">Allow debugging</Property>
 				<Property Name="Source[10].properties[0].value" Type="Bool">false</Property>
 				<Property Name="Source[10].propertiesCount" Type="Int">1</Property>
 				<Property Name="Source[10].type" Type="Str">Container</Property>
 				<Property Name="Source[11].Container.applyProperties" Type="Bool">true</Property>
-				<Property Name="Source[11].itemID" Type="Ref">/My Computer/Sample Hardware</Property>
+				<Property Name="Source[11].itemID" Type="Ref"></Property>
 				<Property Name="Source[11].properties[0].type" Type="Str">Allow debugging</Property>
 				<Property Name="Source[11].properties[0].value" Type="Bool">false</Property>
 				<Property Name="Source[11].propertiesCount" Type="Int">1</Property>
@@ -831,12 +741,12 @@
 				<Property Name="Source[2].Container.applyDestination" Type="Bool">true</Property>
 				<Property Name="Source[2].Container.applyInclusion" Type="Bool">true</Property>
 				<Property Name="Source[2].destinationIndex" Type="Int">0</Property>
-				<Property Name="Source[2].itemID" Type="Ref">/My Computer/Include In Build/user.lib</Property>
+				<Property Name="Source[2].itemID" Type="Ref"></Property>
 				<Property Name="Source[2].sourceInclusion" Type="Str">Include</Property>
 				<Property Name="Source[2].type" Type="Str">Container</Property>
 				<Property Name="Source[3].Container.applyInclusion" Type="Bool">true</Property>
 				<Property Name="Source[3].destinationIndex" Type="Int">0</Property>
-				<Property Name="Source[3].itemID" Type="Ref">/My Computer/Include In Build/vi.lib</Property>
+				<Property Name="Source[3].itemID" Type="Ref"></Property>
 				<Property Name="Source[3].sourceInclusion" Type="Str">Include</Property>
 				<Property Name="Source[3].type" Type="Str">Container</Property>
 				<Property Name="Source[4].destinationIndex" Type="Int">0</Property>
@@ -865,7 +775,7 @@
 				<Property Name="Source[8].propertiesCount" Type="Int">1</Property>
 				<Property Name="Source[8].type" Type="Str">Container</Property>
 				<Property Name="Source[9].Container.applyProperties" Type="Bool">true</Property>
-				<Property Name="Source[9].itemID" Type="Ref">/My Computer/Include In Build</Property>
+				<Property Name="Source[9].itemID" Type="Ref"></Property>
 				<Property Name="Source[9].properties[0].type" Type="Str">Allow debugging</Property>
 				<Property Name="Source[9].properties[0].value" Type="Bool">false</Property>
 				<Property Name="Source[9].propertiesCount" Type="Int">1</Property>
@@ -893,28 +803,28 @@
 				<Property Name="Destination[2].type" Type="Str">userFolder</Property>
 				<Property Name="DestinationCount" Type="Int">3</Property>
 				<Property Name="DistPart[0].flavorID" Type="Str">DefaultFull</Property>
-				<Property Name="DistPart[0].productID" Type="Str">{1CB9B79D-FBCA-43F4-B990-65BD2145BDD0}</Property>
-				<Property Name="DistPart[0].productName" Type="Str">NI LabVIEW Runtime 2015</Property>
+				<Property Name="DistPart[0].productID" Type="Str">{B9B4BBC2-B94B-4E12-87C3-E5EE25B35C1D}</Property>
+				<Property Name="DistPart[0].productName" Type="Str">NI LabVIEW Runtime 2016 f2</Property>
 				<Property Name="DistPart[0].SoftDep[0].exclude" Type="Bool">false</Property>
 				<Property Name="DistPart[0].SoftDep[0].productName" Type="Str">NI ActiveX Container</Property>
 				<Property Name="DistPart[0].SoftDep[0].upgradeCode" Type="Str">{1038A887-23E1-4289-B0BD-0C4B83C6BA21}</Property>
 				<Property Name="DistPart[0].SoftDep[1].exclude" Type="Bool">false</Property>
-				<Property Name="DistPart[0].SoftDep[1].productName" Type="Str">NI System Web Server 15.0</Property>
+				<Property Name="DistPart[0].SoftDep[1].productName" Type="Str">NI System Web Server 16.0</Property>
 				<Property Name="DistPart[0].SoftDep[1].upgradeCode" Type="Str">{FCF64B73-B7D4-4971-8F11-24BAF7CC3E6C}</Property>
 				<Property Name="DistPart[0].SoftDep[2].exclude" Type="Bool">false</Property>
-				<Property Name="DistPart[0].SoftDep[2].productName" Type="Str">NI Logos 15.0</Property>
+				<Property Name="DistPart[0].SoftDep[2].productName" Type="Str">NI Logos 5.9</Property>
 				<Property Name="DistPart[0].SoftDep[2].upgradeCode" Type="Str">{5E4A4CE3-4D06-11D4-8B22-006008C16337}</Property>
 				<Property Name="DistPart[0].SoftDep[3].exclude" Type="Bool">false</Property>
-				<Property Name="DistPart[0].SoftDep[3].productName" Type="Str">NI TDM Streaming 15.0</Property>
+				<Property Name="DistPart[0].SoftDep[3].productName" Type="Str">NI TDM Streaming 17.0</Property>
 				<Property Name="DistPart[0].SoftDep[3].upgradeCode" Type="Str">{4CD11BE6-6BB7-4082-8A27-C13771BC309B}</Property>
 				<Property Name="DistPart[0].SoftDep[4].exclude" Type="Bool">false</Property>
 				<Property Name="DistPart[0].SoftDep[4].productName" Type="Str">NI VC2008MSMs</Property>
 				<Property Name="DistPart[0].SoftDep[4].upgradeCode" Type="Str">{FDA3F8BB-BAA9-45D7-8DC7-22E1F5C76315}</Property>
 				<Property Name="DistPart[0].SoftDep[5].exclude" Type="Bool">false</Property>
-				<Property Name="DistPart[0].SoftDep[5].productName" Type="Str">NI Error Reporting 2015</Property>
+				<Property Name="DistPart[0].SoftDep[5].productName" Type="Str">NI Error Reporting 2017</Property>
 				<Property Name="DistPart[0].SoftDep[5].upgradeCode" Type="Str">{42E818C6-2B08-4DE7-BD91-B0FD704C119A}</Property>
 				<Property Name="DistPart[0].SoftDepCount" Type="Int">6</Property>
-				<Property Name="DistPart[0].upgradeCode" Type="Str">{CA8FF739-2EDA-4134-9A70-0F5DD933FDED}</Property>
+				<Property Name="DistPart[0].upgradeCode" Type="Str">{E7DBF016-365A-40B6-9526-B4D0B4830F51}</Property>
 				<Property Name="DistPartCount" Type="Int">1</Property>
 				<Property Name="INST_autoIncrement" Type="Bool">true</Property>
 				<Property Name="INST_buildLocation" Type="Path">//psf/Home/Documents/Development/Networked Measurement System Server/Source/builds/Networked Measurement System/Server Installer</Property>
@@ -923,7 +833,7 @@
 				<Property Name="INST_productName" Type="Str">Networked Measurement System Server</Property>
 				<Property Name="INST_productVersion" Type="Str">1.0.2</Property>
 				<Property Name="InstSpecBitness" Type="Str">32-bit</Property>
-				<Property Name="InstSpecVersion" Type="Str">15008024</Property>
+				<Property Name="InstSpecVersion" Type="Str">16008010</Property>
 				<Property Name="MSI_autoselectDrivers" Type="Bool">true</Property>
 				<Property Name="MSI_distID" Type="Str">{E419E106-5766-448F-A2DA-64B2185C80E1}</Property>
 				<Property Name="MSI_osCheck" Type="Int">0</Property>
@@ -947,7 +857,7 @@
 				<Property Name="Source[1].dest" Type="Str">{D736A446-BD71-410A-8A5C-C5C1E1EC54CF}</Property>
 				<Property Name="Source[1].File[0].dest" Type="Str">{D736A446-BD71-410A-8A5C-C5C1E1EC54CF}</Property>
 				<Property Name="Source[1].File[0].name" Type="Str">Diode Characterization.lvlib</Property>
-				<Property Name="Source[1].File[0].tag" Type="Ref">/My Computer/Sample Measurements/Diode IV/Diode Characterization.lvlib</Property>
+				<Property Name="Source[1].File[0].tag" Type="Ref">/My Computer/Dependencies/Items in Memory/Diode Characterization.lvlib</Property>
 				<Property Name="Source[1].FileCount" Type="Int">1</Property>
 				<Property Name="Source[1].name" Type="Str">Diode Measurement</Property>
 				<Property Name="Source[1].tag" Type="Ref"></Property>
@@ -955,7 +865,7 @@
 				<Property Name="Source[2].dest" Type="Str">{D736A446-BD71-410A-8A5C-C5C1E1EC54CF}</Property>
 				<Property Name="Source[2].File[0].dest" Type="Str">{D736A446-BD71-410A-8A5C-C5C1E1EC54CF}</Property>
 				<Property Name="Source[2].File[0].name" Type="Str">Resistance.lvlib</Property>
-				<Property Name="Source[2].File[0].tag" Type="Ref">/My Computer/Sample Measurements/Resistance/Resistance.lvlib</Property>
+				<Property Name="Source[2].File[0].tag" Type="Ref">/My Computer/Dependencies/Items in Memory/Resistance.lvlib</Property>
 				<Property Name="Source[2].FileCount" Type="Int">1</Property>
 				<Property Name="Source[2].name" Type="Str">Resistance Measurement</Property>
 				<Property Name="Source[2].tag" Type="Ref"></Property>
@@ -963,7 +873,7 @@
 				<Property Name="Source[3].dest" Type="Str">{D736A446-BD71-410A-8A5C-C5C1E1EC54CF}</Property>
 				<Property Name="Source[3].File[0].dest" Type="Str">{D736A446-BD71-410A-8A5C-C5C1E1EC54CF}</Property>
 				<Property Name="Source[3].File[0].name" Type="Str">Strain.lvlib</Property>
-				<Property Name="Source[3].File[0].tag" Type="Ref">/My Computer/Sample Measurements/Strain/Strain.lvlib</Property>
+				<Property Name="Source[3].File[0].tag" Type="Ref">/My Computer/Dependencies/Items in Memory/Strain.lvlib</Property>
 				<Property Name="Source[3].FileCount" Type="Int">1</Property>
 				<Property Name="Source[3].name" Type="Str">Strain Measurement</Property>
 				<Property Name="Source[3].tag" Type="Ref"></Property>
@@ -971,7 +881,7 @@
 				<Property Name="Source[4].dest" Type="Str">{D736A446-BD71-410A-8A5C-C5C1E1EC54CF}</Property>
 				<Property Name="Source[4].File[0].dest" Type="Str">{D736A446-BD71-410A-8A5C-C5C1E1EC54CF}</Property>
 				<Property Name="Source[4].File[0].name" Type="Str">Frequency Measurement.lvlib</Property>
-				<Property Name="Source[4].File[0].tag" Type="Ref">/My Computer/Sample Measurements/Frequency/Frequency Measurement.lvlib</Property>
+				<Property Name="Source[4].File[0].tag" Type="Ref">/My Computer/Dependencies/Items in Memory/Frequency Measurement.lvlib</Property>
 				<Property Name="Source[4].FileCount" Type="Int">1</Property>
 				<Property Name="Source[4].name" Type="Str">Frequency Measurement</Property>
 				<Property Name="Source[4].tag" Type="Ref"></Property>
@@ -979,7 +889,7 @@
 				<Property Name="Source[5].dest" Type="Str">{3095C854-CC21-4C1B-AF1F-A2E4CEB3EAC7}</Property>
 				<Property Name="Source[5].File[0].dest" Type="Str">{3095C854-CC21-4C1B-AF1F-A2E4CEB3EAC7}</Property>
 				<Property Name="Source[5].File[0].name" Type="Str">Simulated DMM.lvclass</Property>
-				<Property Name="Source[5].File[0].tag" Type="Ref">/My Computer/Sample Hardware/Simulated DMM/Simulated DMM.lvclass</Property>
+				<Property Name="Source[5].File[0].tag" Type="Ref">/My Computer/Dependencies/Items in Memory/Simulated DMM.lvclass</Property>
 				<Property Name="Source[5].FileCount" Type="Int">1</Property>
 				<Property Name="Source[5].name" Type="Str">Simulated DMM Device</Property>
 				<Property Name="Source[5].tag" Type="Ref"></Property>
@@ -997,28 +907,28 @@
 				<Property Name="Destination[1].type" Type="Str">userFolder</Property>
 				<Property Name="DestinationCount" Type="Int">2</Property>
 				<Property Name="DistPart[0].flavorID" Type="Str">DefaultFull</Property>
-				<Property Name="DistPart[0].productID" Type="Str">{1CB9B79D-FBCA-43F4-B990-65BD2145BDD0}</Property>
-				<Property Name="DistPart[0].productName" Type="Str">NI LabVIEW Runtime 2015</Property>
+				<Property Name="DistPart[0].productID" Type="Str">{B9B4BBC2-B94B-4E12-87C3-E5EE25B35C1D}</Property>
+				<Property Name="DistPart[0].productName" Type="Str">NI LabVIEW Runtime 2016 f2</Property>
 				<Property Name="DistPart[0].SoftDep[0].exclude" Type="Bool">false</Property>
 				<Property Name="DistPart[0].SoftDep[0].productName" Type="Str">NI ActiveX Container</Property>
 				<Property Name="DistPart[0].SoftDep[0].upgradeCode" Type="Str">{1038A887-23E1-4289-B0BD-0C4B83C6BA21}</Property>
 				<Property Name="DistPart[0].SoftDep[1].exclude" Type="Bool">false</Property>
-				<Property Name="DistPart[0].SoftDep[1].productName" Type="Str">NI System Web Server 15.0</Property>
+				<Property Name="DistPart[0].SoftDep[1].productName" Type="Str">NI System Web Server 16.0</Property>
 				<Property Name="DistPart[0].SoftDep[1].upgradeCode" Type="Str">{FCF64B73-B7D4-4971-8F11-24BAF7CC3E6C}</Property>
 				<Property Name="DistPart[0].SoftDep[2].exclude" Type="Bool">false</Property>
-				<Property Name="DistPart[0].SoftDep[2].productName" Type="Str">NI Logos 15.0</Property>
+				<Property Name="DistPart[0].SoftDep[2].productName" Type="Str">NI Logos 5.9</Property>
 				<Property Name="DistPart[0].SoftDep[2].upgradeCode" Type="Str">{5E4A4CE3-4D06-11D4-8B22-006008C16337}</Property>
 				<Property Name="DistPart[0].SoftDep[3].exclude" Type="Bool">false</Property>
-				<Property Name="DistPart[0].SoftDep[3].productName" Type="Str">NI TDM Streaming 15.0</Property>
+				<Property Name="DistPart[0].SoftDep[3].productName" Type="Str">NI TDM Streaming 17.0</Property>
 				<Property Name="DistPart[0].SoftDep[3].upgradeCode" Type="Str">{4CD11BE6-6BB7-4082-8A27-C13771BC309B}</Property>
 				<Property Name="DistPart[0].SoftDep[4].exclude" Type="Bool">false</Property>
 				<Property Name="DistPart[0].SoftDep[4].productName" Type="Str">NI VC2008MSMs</Property>
 				<Property Name="DistPart[0].SoftDep[4].upgradeCode" Type="Str">{FDA3F8BB-BAA9-45D7-8DC7-22E1F5C76315}</Property>
 				<Property Name="DistPart[0].SoftDep[5].exclude" Type="Bool">false</Property>
-				<Property Name="DistPart[0].SoftDep[5].productName" Type="Str">NI Error Reporting 2015</Property>
+				<Property Name="DistPart[0].SoftDep[5].productName" Type="Str">NI Error Reporting 2017</Property>
 				<Property Name="DistPart[0].SoftDep[5].upgradeCode" Type="Str">{42E818C6-2B08-4DE7-BD91-B0FD704C119A}</Property>
 				<Property Name="DistPart[0].SoftDepCount" Type="Int">6</Property>
-				<Property Name="DistPart[0].upgradeCode" Type="Str">{CA8FF739-2EDA-4134-9A70-0F5DD933FDED}</Property>
+				<Property Name="DistPart[0].upgradeCode" Type="Str">{E7DBF016-365A-40B6-9526-B4D0B4830F51}</Property>
 				<Property Name="DistPartCount" Type="Int">1</Property>
 				<Property Name="INST_autoIncrement" Type="Bool">true</Property>
 				<Property Name="INST_buildLocation" Type="Path">//psf/Home/Documents/Development/Networked Measurement System Client/Source/builds/Networked Measurement System/Server Installer</Property>
@@ -1027,7 +937,7 @@
 				<Property Name="INST_productName" Type="Str">Networked Measurement System Client</Property>
 				<Property Name="INST_productVersion" Type="Str">1.0.2</Property>
 				<Property Name="InstSpecBitness" Type="Str">32-bit</Property>
-				<Property Name="InstSpecVersion" Type="Str">15008024</Property>
+				<Property Name="InstSpecVersion" Type="Str">16008010</Property>
 				<Property Name="MSI_autoselectDrivers" Type="Bool">true</Property>
 				<Property Name="MSI_distID" Type="Str">{922BE898-3B08-444C-B041-0DEF8BB43D8D}</Property>
 				<Property Name="MSI_osCheck" Type="Int">0</Property>
@@ -1039,7 +949,7 @@
 				<Property Name="Source[0].dest" Type="Str">{D736A446-BD71-410A-8A5C-C5C1E1EC54CF}</Property>
 				<Property Name="Source[0].File[0].dest" Type="Str">{D736A446-BD71-410A-8A5C-C5C1E1EC54CF}</Property>
 				<Property Name="Source[0].File[0].name" Type="Str">Resistance.lvlib</Property>
-				<Property Name="Source[0].File[0].tag" Type="Ref">/My Computer/Sample Measurements/Resistance/Resistance.lvlib</Property>
+				<Property Name="Source[0].File[0].tag" Type="Ref">/My Computer/Dependencies/Items in Memory/Resistance.lvlib</Property>
 				<Property Name="Source[0].FileCount" Type="Int">1</Property>
 				<Property Name="Source[0].name" Type="Str">Resistance Measurement</Property>
 				<Property Name="Source[0].tag" Type="Ref"></Property>
@@ -1047,7 +957,7 @@
 				<Property Name="Source[1].dest" Type="Str">{D736A446-BD71-410A-8A5C-C5C1E1EC54CF}</Property>
 				<Property Name="Source[1].File[0].dest" Type="Str">{D736A446-BD71-410A-8A5C-C5C1E1EC54CF}</Property>
 				<Property Name="Source[1].File[0].name" Type="Str">Strain.lvlib</Property>
-				<Property Name="Source[1].File[0].tag" Type="Ref">/My Computer/Sample Measurements/Strain/Strain.lvlib</Property>
+				<Property Name="Source[1].File[0].tag" Type="Ref">/My Computer/Dependencies/Items in Memory/Strain.lvlib</Property>
 				<Property Name="Source[1].FileCount" Type="Int">1</Property>
 				<Property Name="Source[1].name" Type="Str">Strain Measurement</Property>
 				<Property Name="Source[1].tag" Type="Ref"></Property>
@@ -1055,7 +965,7 @@
 				<Property Name="Source[2].dest" Type="Str">{D736A446-BD71-410A-8A5C-C5C1E1EC54CF}</Property>
 				<Property Name="Source[2].File[0].dest" Type="Str">{D736A446-BD71-410A-8A5C-C5C1E1EC54CF}</Property>
 				<Property Name="Source[2].File[0].name" Type="Str">Frequency Measurement.lvlib</Property>
-				<Property Name="Source[2].File[0].tag" Type="Ref">/My Computer/Sample Measurements/Frequency/Frequency Measurement.lvlib</Property>
+				<Property Name="Source[2].File[0].tag" Type="Ref">/My Computer/Dependencies/Items in Memory/Frequency Measurement.lvlib</Property>
 				<Property Name="Source[2].FileCount" Type="Int">1</Property>
 				<Property Name="Source[2].name" Type="Str">Frequency Measurement</Property>
 				<Property Name="Source[2].tag" Type="Ref"></Property>
@@ -1063,7 +973,7 @@
 				<Property Name="Source[3].dest" Type="Str">{3095C854-CC21-4C1B-AF1F-A2E4CEB3EAC7}</Property>
 				<Property Name="Source[3].File[0].dest" Type="Str">{3095C854-CC21-4C1B-AF1F-A2E4CEB3EAC7}</Property>
 				<Property Name="Source[3].File[0].name" Type="Str">Simulated DMM.lvclass</Property>
-				<Property Name="Source[3].File[0].tag" Type="Ref">/My Computer/Sample Hardware/Simulated DMM/Simulated DMM.lvclass</Property>
+				<Property Name="Source[3].File[0].tag" Type="Ref">/My Computer/Dependencies/Items in Memory/Simulated DMM.lvclass</Property>
 				<Property Name="Source[3].FileCount" Type="Int">1</Property>
 				<Property Name="Source[3].name" Type="Str">Simulated DMM Device</Property>
 				<Property Name="Source[3].tag" Type="Ref"></Property>
