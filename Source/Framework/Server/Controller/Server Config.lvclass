@@ -50,7 +50,7 @@
 			<Property Name="NI.ClassItem.IsStaticMethod" Type="Bool">true</Property>
 			<Property Name="NI.ClassItem.MethodScope" Type="UInt">1</Property>
 			<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
-			<Property Name="NI.ClassItem.State" Type="Int">44564480</Property>
+			<Property Name="NI.ClassItem.State" Type="Int">11018244</Property>
 		</Item>
 		<Item Name="Write Listener Port.vi" Type="VI" URL="../Config/Write Listener Port.vi">
 			<Property Name="NI.ClassItem.ConnectorPane" Type="Bin">&amp;A#!!!!!!!)!"1!&amp;!!!-!%!!!@````]!!!!"!!%!!!&amp;R!!!!#A!-1#%'=X2B&gt;(6T!!!,1!-!"'.P:'5!!""!-0````]'=W^V=G.F!!!71&amp;!!!Q!!!!%!!AFF=H*P=C"P&gt;81!"!!!!%J!=!!?!!!P&amp;V.F=H:F=C"$&lt;WZU=G^M&lt;'6S,GRW&lt;'FC&amp;6.F=H:F=C"$&lt;WZG;7=O&lt;(:D&lt;'&amp;T=Q!25W6S&gt;G6S)%.P&lt;G:J:S"P&gt;81!)%"1!!-!!!!"!!)4:8*S&lt;X)A;7YA+'ZP)'6S=G^S+1!41!9!$5RJ=X2F&lt;G6S)&amp;"P=H1!3E"Q!"Y!!#]85W6S&gt;G6S)%.P&lt;H2S&lt;WRM:8)O&lt;(:M;7)65W6S&gt;G6S)%.P&lt;G:J:SZM&gt;G.M98.T!""4:8*W:8)A1W^O:GFH)'FO!!"B!0!!$!!$!!1!"!!&amp;!!1!"!!%!!1!"A!%!!=!#!)!!(A!!!U)!!!!!!!!!!!!!!U,!!!!!!!!!!!!!!!!!!!!!!!!#!!!!!!!!!!1!!!!%A!!$1!!!!Q!!!!!!!!!!!!!!1!*!!!!!!</Property>
@@ -59,7 +59,7 @@
 			<Property Name="NI.ClassItem.IsStaticMethod" Type="Bool">true</Property>
 			<Property Name="NI.ClassItem.MethodScope" Type="UInt">1</Property>
 			<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
-			<Property Name="NI.ClassItem.State" Type="Int">11018240</Property>
+			<Property Name="NI.ClassItem.State" Type="Int">11018244</Property>
 		</Item>
 	</Item>
 	<Item Name="Read Configuration Parameters.vi" Type="VI" URL="../Read Configuration Parameters.vi">
