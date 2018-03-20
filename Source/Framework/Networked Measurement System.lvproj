@@ -58,6 +58,7 @@
 			<Item Name="Client LNA.lvlib" Type="Library" URL="../Client/Client LNA/Client LNA.lvlib"/>
 		</Item>
 		<Item Name="Measurement Utility Instructions.pdf" Type="Document" URL="../Measurement Utility Instructions.pdf"/>
+		<Item Name="EV Battery Measurements.lvlib" Type="Library" URL="../../../../EV Battery Test System/EV Battery Measurements.lvlib"/>
 		<Item Name="Dependencies" Type="Dependencies">
 			<Item Name="user.lib" Type="Folder">
 				<Item Name="Compare Two Paths__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/file/file.llb/Compare Two Paths__ogtk.vi"/>
@@ -373,6 +374,7 @@
 				<Item Name="Strip Path Extension - 1D Array of Paths__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/file/file.llb/Strip Path Extension - 1D Array of Paths__ogtk.vi"/>
 				<Item Name="Strip Path Extension - 1D Array of Strings__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/file/file.llb/Strip Path Extension - 1D Array of Strings__ogtk.vi"/>
 				<Item Name="Search or Split String__ogtk.vi" Type="VI" URL="/&lt;userlib&gt;/_OpenG.lib/string/string.llb/Search or Split String__ogtk.vi"/>
+				<Item Name="Configuration.lvlib" Type="Library" URL="/&lt;userlib&gt;/Configuration Dialog Actor/Configuration.lvlib"/>
 			</Item>
 			<Item Name="vi.lib" Type="Folder">
 				<Item Name="Error Cluster From Error Code.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/error.llb/Error Cluster From Error Code.vi"/>
@@ -461,11 +463,27 @@
 				<Item Name="LVRowAndColumnTypeDef.ctl" Type="VI" URL="/&lt;vilib&gt;/Utility/miscctls.llb/LVRowAndColumnTypeDef.ctl"/>
 				<Item Name="NI_SystemLogging.lvlib" Type="Library" URL="/&lt;vilib&gt;/Utility/SystemLogging/NI_SystemLogging.lvlib"/>
 				<Item Name="High Resolution Relative Seconds.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/High Resolution Relative Seconds.vi"/>
+				<Item Name="NI Skyline Configuration AMQP.lvclass" Type="LVClass" URL="/&lt;vilib&gt;/Skyline/Configuration/Configuration AMQP_class/NI Skyline Configuration AMQP.lvclass"/>
+				<Item Name="NI Skyline Configuration.lvclass" Type="LVClass" URL="/&lt;vilib&gt;/Skyline/Configuration/Configuration_class/NI Skyline Configuration.lvclass"/>
+				<Item Name="NI Skyline Configuration HTTP.lvclass" Type="LVClass" URL="/&lt;vilib&gt;/Skyline/Configuration/Configuration HTTP_class/NI Skyline Configuration HTTP.lvclass"/>
+				<Item Name="Is Path and Not Empty.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/file.llb/Is Path and Not Empty.vi"/>
+				<Item Name="NI Skyline File.lvclass" Type="LVClass" URL="/&lt;vilib&gt;/Skyline/File/File/NI Skyline File.lvclass"/>
+				<Item Name="niSkylineFileIngestion.lvlib" Type="Library" URL="/&lt;vilib&gt;/Skyline/File/niSkylineFileIngestion.lvlib"/>
+				<Item Name="NI Skyline Utilities.lvlib" Type="Library" URL="/&lt;vilib&gt;/Skyline/Utilities/NI Skyline Utilities.lvlib"/>
+				<Item Name="NI Skyline File Packet Event.lvclass" Type="LVClass" URL="/&lt;vilib&gt;/Skyline/File/Packet Event/NI Skyline File Packet Event.lvclass"/>
+				<Item Name="NI Skyline Auto Writable File.lvclass" Type="LVClass" URL="/&lt;vilib&gt;/Skyline/File/Auto Writable File/NI Skyline Auto Writable File.lvclass"/>
+				<Item Name="NI Skyline Writable File.lvclass" Type="LVClass" URL="/&lt;vilib&gt;/Skyline/File/Writable File/NI Skyline Writable File.lvclass"/>
+				<Item Name="NI Skyline File Filter.lvclass" Type="LVClass" URL="/&lt;vilib&gt;/Skyline/File/Filter/NI Skyline File Filter.lvclass"/>
+				<Item Name="Current Value Table.lvlib" Type="Library" URL="/&lt;vilib&gt;/NI/Current Value Table/Current Value Table.lvlib"/>
 			</Item>
 			<Item Name="mscorlib" Type="VI" URL="mscorlib">
 				<Property Name="NI.PreserveRelativePath" Type="Bool">true</Property>
 			</Item>
 			<Item Name="AF Debug.lvlib" Type="Library" URL="/&lt;resource&gt;/AFDebug/AF Debug.lvlib"/>
+			<Item Name="systemLogging.dll" Type="Document" URL="systemLogging.dll">
+				<Property Name="NI.PreserveRelativePath" Type="Bool">true</Property>
+			</Item>
+			<Item Name="LV Config Read String.vi" Type="VI" URL="/&lt;resource&gt;/dialog/lvconfig.llb/LV Config Read String.vi"/>
 			<Item Name="Generic UI Actor.lvlib" Type="Library" URL="../../../../MAL-Framework/user.lib/Common Components/User Interface/Generic UI Actor.lvlib"/>
 			<Item Name="Measurement UI.lvlib" Type="Library" URL="../../../../MAL-Framework/user.lib/Common Components/Msmt UI/Measurement UI.lvlib"/>
 			<Item Name="Controller Actor.lvlib" Type="Library" URL="../../../../MAL-Framework/user.lib/Common Components/Controller/Controller Actor.lvlib"/>
@@ -473,11 +491,7 @@
 			<Item Name="Measurement Actor.lvlib" Type="Library" URL="../../../../MAL-Framework/user.lib/Common Components/Measurement Actor/Measurement Actor.lvlib"/>
 			<Item Name="Result Actor.lvlib" Type="Library" URL="../../../../MAL-Framework/user.lib/Common Components/Results/Result Actor.lvlib"/>
 			<Item Name="Msmt Configuration.lvlib" Type="Library" URL="../../../../MAL-Framework/user.lib/Common Components/Msmt Configuration/Msmt Configuration.lvlib"/>
-			<Item Name="Configuration.lvlib" Type="Library" URL="../../../../Extensible-Config-Dialog/Configuration.lvlib"/>
-			<Item Name="systemLogging.dll" Type="Document" URL="systemLogging.dll">
-				<Property Name="NI.PreserveRelativePath" Type="Bool">true</Property>
-			</Item>
-			<Item Name="LV Config Read String.vi" Type="VI" URL="/&lt;resource&gt;/dialog/lvconfig.llb/LV Config Read String.vi"/>
+			<Item Name="Logger.lvlib" Type="Library" URL="../../../../MAL-Framework/user.lib/Common Components/Logger/Logger.lvlib"/>
 		</Item>
 		<Item Name="Build Specifications" Type="Build">
 			<Item Name="Client EXE" Type="EXE">
