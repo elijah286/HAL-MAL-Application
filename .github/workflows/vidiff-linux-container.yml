@@ -5,11 +5,13 @@ on:
     paths:
       - '**.vi'
       - '**.ctl'
+      - '!.github/**'
   push:
     branches: [main]
     paths:
       - '**.vi'
       - '**.ctl'
+      - '!.github/**'
   workflow_dispatch:
     inputs:
       base_sha:
@@ -83,7 +85,9 @@ jobs:
       - name: Restore CI scripts from main
         if: github.event_name == 'workflow_dispatch'
         working-directory: head
-        run: git checkout origin/main -- .github/labview .github/workflows
+        run: |
+          git fetch --no-tags origin main
+          git checkout FETCH_HEAD -- .github/labview .github/workflows
 
       - name: Get list of changed VI/CTL files
         id: changed
