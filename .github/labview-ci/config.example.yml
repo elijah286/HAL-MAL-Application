@@ -1,0 +1,75 @@
+# .github/labview-ci.yml - LabVIEW CI configuration (example)
+#
+# This file is written by the installer to record what was installed, and is the
+# single place to review/repin the configuration for this repo. The workflows
+# themselves read their settings at runtime from the GitHub context and from
+# optional GitHub Actions *variables* (Settings > Secrets and variables >
+# Actions > Variables), all of which have safe fallbacks - so this file is a
+# human-facing record, not a hard dependency.
+#
+# Everything below is OPTIONAL. With nothing set, the pipeline uses sensible
+# defaults: LabVIEW 2026, an image named "<repo>-labview", and a Pages site at
+# https://<owner>.github.io/<repo>.
+
+schemaVersion: 1
+
+# Where the tooling was installed from. Used by `install.py` for re-runs/upgrades.
+source:
+  repo: elijah286/LabVIEW-CI-with-Containers
+  ref: main
+
+config:
+  # LabVIEW year. Drives the in-container LabVIEW.exe path and the image tag.
+  # To pin it for CI, set the Actions variable LABVIEW_VERSION to the same value.
+  labviewVersion: "2026"
+
+  # Default branch the push-triggered workflows watch.
+  branch: main
+
+  # Operating systems the analysis jobs run on.
+  os: [windows, linux]
+
+  # Optional GHCR image name override (default: "<repo>-labview").
+  # To pin it for CI, set the Actions variable LABVIEW_IMAGE_NAME.
+  # imageName: my-labview-ci
+
+  # Worker container (optional). Choose which prebuilt GHCR image CI runs in and
+  # the VIPC dependency files baked into it. Managed by the Configure dialog.
+  container:
+    # Default image tag every container action uses: "latest" (recommended;
+    # tracks your newest build), a pinned per-content tag (e.g. win-ab12cd34ef56),
+    # the LabVIEW year, or "base" for the bare NI image.
+    use: latest
+
+    # VIPC dependency files applied to (baked into) the worker image. Set
+    # monitor: true to rebuild + re-push the container to GHCR automatically
+    # whenever that file changes on a submission; monitor: false bakes it once.
+    vipc:
+      - path: "Dependencies.vipc"
+        monitor: true
+
+    # Per-action container overrides (optional). Each Windows container action can
+    # run in a different image than the default above: "latest", a pinned build
+    # tag, the LabVIEW year, or "base" (the bare NI image, no baked deps). Anything
+    # not listed uses `use`. Linux jobs always run on the NI base image.
+    actions:
+      masscompile: latest
+      vi-analyzer: latest
+      vidiff: base
+
+# Installed capabilities (see .github/labview-ci/catalog.json for the full list).
+activities:
+  - dashboard
+  - masscompile
+  - vi-analyzer
+  - vidiff
+
+# ----------------------------------------------------------------------------
+# Actions variables the workflows honor at runtime (set with `gh variable set`):
+#
+#   gh variable set LABVIEW_VERSION    -b 2026
+#   gh variable set LABVIEW_IMAGE_NAME -b my-labview-ci      # optional
+#   gh variable set PAGES_URL          -b https://ci.example.com   # custom domain
+#
+# None are required; each falls back to a value derived from the repository.
+# ----------------------------------------------------------------------------
