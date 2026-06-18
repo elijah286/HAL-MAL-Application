@@ -1226,14 +1226,16 @@ loadCommits().catch(err => {
     var i = $("nt-tokp-input"); if (i) { i.value = ""; i.focus(); }
   }
 
+  function setupTokenUrl() {
+    return "https://github.com/settings/personal-access-tokens/new?name=" + encodeURIComponent("LabVIEW CI setup") + "&description=" + encodeURIComponent("Save the VI Browser 2.0 render token for " + repo) + "&target_name=" + encodeURIComponent(repo.split("/")[0]) + "&secrets=write&variables=write";
+  }
   function connect() {
     var st = $("nt-status"), token = ($("nt-token").value || "").trim();
     if (!token) { $("nt-token").focus(); return; }
     if (!repo) { setStatus(st, "Couldn't detect this repository from the URL. Finish setup on the <a href='" + integrateHref + "'>Integrate page</a>.", "err"); return; }
     var ins = lsGet(INSTALL_KEY);
     if (!ins) {
-      var su = "https://github.com/settings/personal-access-tokens/new?name=" + encodeURIComponent("LabVIEW CI setup") + "&description=" + encodeURIComponent("Save the VI Browser 2.0 render token for " + repo) + "&target_name=" + encodeURIComponent(repo.split("/")[0]) + "&secrets=write&variables=write";
-      needToken(INSTALL_KEY, "Saving the secret needs a one-time <strong>setup token</strong> with <strong>Secrets &amp; Variables: write</strong> on <code>" + esc(repo) + "</code>. <a href='" + su + "' target='_blank' rel='noopener' style='color:var(--link)'>Create one \u2197</a>, paste it below, and Save.", connect);
+      needToken(INSTALL_KEY, "Saving the secret needs a one-time <strong>setup token</strong> \u2014 this is <strong>different</strong> from the render token above. Create a fine-grained token with <strong>Secrets</strong> and <strong>Variables</strong> set to <strong>Read and write</strong> on <code>" + esc(repo) + "</code>. <a href='" + setupTokenUrl() + "' target='_blank' rel='noopener' style='color:var(--link)'>Create one \u2197</a>, paste it below, and Save.", connect);
       setStatus(st, "Render token captured \u2014 paste the one-time setup token below, then Save to finish.", null); return;
     }
     var btn = $("nt-connect"); btn.disabled = true;
@@ -1258,10 +1260,18 @@ loadCommits().catch(err => {
       })
       .catch(function (e) {
         var s = e && e.status;
-        setStatus(st, s === 401 ? "Setup token rejected (401) \u2014 re-create it on the Integrate page."
-          : s === 403 ? "Setup token lacks <strong>Secrets: write</strong> on this repo."
-          : s === 404 ? "Setup token can't see <code>" + esc(repo) + "</code>."
-          : "Couldn't save the token: " + esc(e && e.message || String(e)), "err");
+        if (s === 401 || s === 403 || s === 404) {
+          // The saved setup token is bad/insufficient -> drop it and let the user
+          // paste a corrected one in place, instead of dead-ending on the error.
+          try { localStorage.removeItem(INSTALL_KEY); } catch (ig) {}
+          var why = s === 401 ? "That setup token was rejected (401 \u2014 it may be expired or mistyped)."
+            : s === 403 ? "That setup token is missing <strong>Secrets</strong> / <strong>Variables: write</strong> on <code>" + esc(repo) + "</code>. A <code>read:packages</code> render token won\u2019t work here \u2014 the setup token is a separate, fine-grained token."
+            : "That setup token can\u2019t see <code>" + esc(repo) + "</code> \u2014 give it access to this repository.";
+          needToken(INSTALL_KEY, why + " <a href='" + setupTokenUrl() + "' target='_blank' rel='noopener' style='color:var(--link)'>Create a new setup token \u2197</a> with <strong>Secrets</strong> and <strong>Variables: Read and write</strong>, paste it below, and Save.", connect);
+          setStatus(st, "", null);
+        } else {
+          setStatus(st, "Couldn't save the token: " + esc(e && e.message || String(e)), "err");
+        }
       })
       .then(function () { btn.disabled = false; });
   }
@@ -1276,11 +1286,13 @@ loadCommits().catch(err => {
     var ok = $("nt-success"); if (ok) ok.style.display = "";
   }
 
+  function dispatchTokenUrl() {
+    return "https://github.com/settings/personal-access-tokens/new?name=" + encodeURIComponent("LabVIEW CI dispatch") + "&description=" + encodeURIComponent("Dispatch CI runs for " + repo) + "&target_name=" + encodeURIComponent(repo.split("/")[0]) + "&actions=write";
+  }
   function generate() {
     var st = $("nt-gen-status"), dt = lsGet(DISPATCH_KEY);
     if (!dt) {
-      var du = "https://github.com/settings/personal-access-tokens/new?name=" + encodeURIComponent("LabVIEW CI dispatch") + "&description=" + encodeURIComponent("Dispatch CI runs for " + repo) + "&target_name=" + encodeURIComponent(repo.split("/")[0]) + "&actions=write";
-      needToken(DISPATCH_KEY, "Running the snapshot needs a token with <strong>Actions: write</strong> on <code>" + esc(repo) + "</code>. <a href='" + du + "' target='_blank' rel='noopener' style='color:var(--link)'>Create one \u2197</a>, paste it below, and Save.", generate);
+      needToken(DISPATCH_KEY, "Running the snapshot needs a token with <strong>Actions: write</strong> on <code>" + esc(repo) + "</code>. <a href='" + dispatchTokenUrl() + "' target='_blank' rel='noopener' style='color:var(--link)'>Create one \u2197</a>, paste it below, and Save.", generate);
       setStatus(st, "", null); return;
     }
     var btn = $("nt-generate"); btn.disabled = true;
@@ -1289,7 +1301,12 @@ loadCommits().catch(err => {
       .then(function (r) {
         btn.disabled = false;
         if (r.status === 204) { setStatus(st, "\u2713 Queued. When the run finishes, reload and the VI opens in 2.0. <a href='https://github.com/" + esc(repo) + "/actions/workflows/" + JSON_WF + "' target='_blank' rel='noopener'>View run \u2197</a>", "ok"); return; }
-        setStatus(st, r.status === 401 ? "Dispatch token rejected (401)." : r.status === 403 ? "Dispatch token lacks Actions: write on this repo." : r.status === 404 ? "Token can't see <code>" + esc(repo) + "</code>, or the workflow isn't on the default branch." : "Dispatch failed (HTTP " + r.status + ").", "err");
+        if (r.status === 401 || r.status === 403) {
+          try { localStorage.removeItem(DISPATCH_KEY); } catch (ig) {}
+          needToken(DISPATCH_KEY, (r.status === 401 ? "That token was rejected (401 \u2014 it may be expired or mistyped)." : "That token is missing <strong>Actions: write</strong> on <code>" + esc(repo) + "</code>.") + " <a href='" + dispatchTokenUrl() + "' target='_blank' rel='noopener' style='color:var(--link)'>Create a new one \u2197</a> with <strong>Actions: Read and write</strong>, paste it below, and Save.", generate);
+          setStatus(st, "", null); return;
+        }
+        setStatus(st, r.status === 404 ? "Token can't see <code>" + esc(repo) + "</code>, or the workflow isn't on the default branch." : "Dispatch failed (HTTP " + r.status + ").", "err");
       })
       .catch(function (e) { btn.disabled = false; setStatus(st, "Network error: " + esc(e && e.message || String(e)), "err"); });
   }
