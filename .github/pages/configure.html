@@ -172,8 +172,9 @@
             <label class="fl">Operating systems</label>
             <div class="toggle-row" id="osToggle">
               <label class="toggle"><input type="checkbox" value="windows" checked> Windows</label>
-              <label class="toggle"><input type="checkbox" value="linux" checked> Linux</label>
+              <label class="toggle"><input type="checkbox" value="linux"> Linux</label>
             </div>
+            <p class="hint" style="margin-top:6px">Linux container jobs run on the NI base image and are <strong>experimental</strong> &mdash; opt in only if you want them. Windows is the supported default.</p>
           </div>
           <div class="field">
             <label class="fl" for="runners">Max concurrent runners
@@ -302,7 +303,7 @@
 
     let catalog = null;
     let pkgObj = null;                       // parsed ci-tooling.packages.json
-    const osSel = new Set(["windows", "linux"]);
+    const osSel = new Set(["windows"]);      // Linux container jobs are experimental (NI base image); opt in via the toggle below
     const actSel = new Set();
     let winLatest = null;                    // workers/windows/latest.json (current build)
     let containerUse = "latest";             // config.container.use (default tag activities pull)
@@ -401,8 +402,9 @@
     // year, so reconfiguring to another year asked for an image that doesn't exist
     // and broke every container job. Ignore the repo's stored value and always show
     // that year, disabled -- so saving heals a repo pinned to an unsupported year.
-    // FUTURE: re-enable as a 2017..2026 code-compatibility picker that writes the
-    // LabVIEW project "Save Setting" (2026 editor, older-compatible code), not the tag.
+    // Code COMPATIBILITY with an older LabVIEW run-time is owned by the project's own
+    // .lvproj "save for previous version" setting, honored by the 2026 container -- so
+    // this field stays permanently locked and needs no version/compatibility picker.
     function renderVersions(sel) {
       const el = $("version");
       const locked = (catalog.defaults && catalog.defaults.labviewVersion) || "2026";
