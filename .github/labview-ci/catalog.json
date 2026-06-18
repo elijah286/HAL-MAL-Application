@@ -1,11 +1,55 @@
 {
   "schemaVersion": 1,
-  "version": "3.4.2",
+  "version": "3.4.6",
   "name": "LabVIEW CI",
   "description": "Portable, repo-agnostic CI/CD capabilities for LabVIEW repositories: mass compile, VI Analyzer, VIDiff comparison reports, VI snapshots / VI Browser, and a status dashboard. Driven entirely by this catalog so the configurator UI and the installer stay in sync and new capabilities are a one-entry change.",
   "history": {
     "comment": "Release notes for the tooling, newest first. `version` (above) is the CURRENT published release and MUST equal releases[0].version. The dashboard version badge and the What's New dialog read these notes to tell a consumer what changed between the version they run and the latest this source repo publishes. Each published version should also be tagged v<version> in this repo so consumers can pin an update to a specific release.",
     "releases": [
+      {
+        "version": "3.4.6",
+        "date": "2026-06-18",
+        "title": "Installing the pipeline no longer auto-runs CI on a new repo",
+        "summary": "Deploying LabVIEW CI to a new repository used to kick off CI and image-build jobs immediately: VI Snapshots, Unit Tests, and the LabVIEW container image build auto-ran on the tooling files the install adds (their scripts, the .github/labview-ci.yml config, the Dockerfile and the tooling vipc). Now those workflows trigger only on real LabVIEW source changes - your VIs, or your own project dependency vipc - or on demand. So installing simply stands up the dashboard showing your full revision history with no runs, and the dashboard offers a one-click Run all history prompt to backfill CI across history whenever you choose. Heavy work (snapshots, tests, image builds) starts only when you change source or ask for it.",
+        "highlights": [
+          "Installing no longer auto-runs CI: VI Snapshots, Unit Tests, and the LabVIEW image build now trigger only on real LabVIEW source changes (or on demand), not on the tooling files the install adds.",
+          "A fresh dashboard stands up with your full revision history and no runs, plus a one-click Run all history prompt so you choose when to backfill CI across history.",
+          "The LabVIEW image still rebuilds when your project depends on a new package (a *.vipc outside the tooling dir), monthly for base-image security, or on demand - just not on install."
+        ]
+      },
+      {
+        "version": "3.4.5",
+        "date": "2026-06-18",
+        "title": "VI Browser 2.0: a rejected render-token setup token can be fixed in place",
+        "summary": "After the connect-hang fix, a setup token that lacked permission - for example reusing the read:packages render token, which cannot write secrets - showed a clear error but left the bad token saved, so clicking Connect again just repeated the same error with no way to enter a different one. Now a rejected or insufficient setup token (401/403/404) is dropped automatically and the prompt reopens in place with specific guidance - including that the setup token is a separate, fine-grained token with Secrets and Variables set to Read and write, distinct from the render token - so you can paste a corrected token and finish without reloading. The render token you already pasted is kept, and the same in-place recovery now applies to the Actions: write token used by the Generate the 2.0 snapshot button.",
+        "highlights": [
+          "A rejected or under-scoped setup token is now cleared and re-requested in place instead of dead-ending on the error.",
+          "The prompt spells out that the setup token is a separate fine-grained token (Secrets + Variables: Read and write), not the read:packages render token.",
+          "The same in-place token recovery applies to the Actions: write token used to run the snapshot."
+        ]
+      },
+      {
+        "version": "3.4.4",
+        "date": "2026-06-18",
+        "title": "Apply to New Repo publishes the dashboard first, even if a CI check fails",
+        "summary": "Installing the pipeline into a new repository now makes the CI dashboard and its README link the first thing that goes live - independent of any CI run. Previously the dashboard only appeared after the first analysis run, so a failing check (for example the Windows VI Analyzer) could leave the site stuck on the publishing placeholder. The configurator now squash-merges the install pull request by default and dispatches the dashboard build immediately, so the dashboard publishes within a minute of applying, and the placeholder and on-screen guidance no longer say it waits for a CI run. Changing a VI still fills in the analysis columns (VI Analyzer, VIDiff, Mass Compile), but a failing check never keeps the dashboard from publishing. Uncheck the new default to review the install pull request first - the dashboard then publishes the moment you merge.",
+        "highlights": [
+          "The dashboard and README link publish as the first thing on Apply to New Repo - no CI run required, and a failing VI Analyzer no longer blocks the dashboard.",
+          "The install pull request now auto-merges by default and the dashboard build is dispatched immediately, so the site goes live within a minute (uncheck to review first).",
+          "Corrected the publishing placeholder and the installer guidance that wrongly said the dashboard appears only after the first CI run."
+        ]
+      },
+      {
+        "version": "3.4.3",
+        "date": "2026-06-18",
+        "title": "LabVIEW version is fixed to the supported year",
+        "summary": "The LabVIEW version field on the install and Configure Workers screens is now read-only and fixed to the year the CI tooling is built for (2026). The worker container images, baked VIPM dependencies, and LabVIEW paths all target that single year, so choosing a different one asked the Windows worker jobs to pull a container image tag that was never published and made them fail. Locking the field removes that pitfall, and reinstalling or reconfiguring a repository that was previously pinned to an unsupported year now heals it back to the supported year. A future update will reintroduce this control as a code-compatibility selector that keeps the 2026 editor but saves your code compatible with an older LabVIEW run-time using the new project save setting.",
+        "highlights": [
+          "The LabVIEW version selector is now read-only and fixed to the supported year (2026) in both the installer and Configure Workers.",
+          "This prevents the Windows container jobs from failing on a worker image tag that was never built for an unsupported year.",
+          "Reinstalling or reconfiguring a repository pinned to an old year now heals it back to the supported year."
+        ]
+      },
       {
         "version": "3.4.2",
         "date": "2026-06-18",
