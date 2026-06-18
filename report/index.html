@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CI Report — LabVIEW-CI-with-Containers</title>
+  <!--
+    Framed report viewer. The CI Dashboard opens its per-revision reports (Mass
+    Compile, VI Analyzer) here so each one loads *inside* the shared header
+    chrome — same nav, a Revision picker, and a Regenerate / Re-run button —
+    instead of as a bare full-page report. Reports that predate the header (or
+    have none of their own) therefore still appear inside the chrome. The report
+    is shown in an iframe; the shared header suppresses its own copy inside that
+    iframe, so there is exactly one chrome bar.
+
+    Query params (all optional except src):
+      src      — RELATIVE, same-origin path to the report to embed,
+                 e.g. "../masscompile/<sha>/index.html". Absolute URLs, scheme
+                 URLs and protocol-relative ("//host") values are rejected so the
+                 frame can only ever load first-party content from this Pages site.
+      type     — document type: "masscompile-report" or "vi-analyzer-report".
+                 Drives the header's Regenerate action + revision picker. An
+                 unknown/absent type still frames the report under a plain header.
+      sha      — commit SHA (full) for the embedded report.
+      short    — short SHA / label for the revision.
+      platform — "windows" | "linux" (which workflow Regenerate dispatches).
+      title    — document title for the browser tab.
+  -->
+  <script>
+    // Configure the shared header BEFORE it loads (it is deferred). The header
+    // reads window.LVCI; pointing its context at the embedded report's document
+    // type makes it render that report's chrome (nav + Revision picker +
+    // Regenerate), and `embedded` makes the picker re-frame THIS viewer when the
+    // revision changes. Query values are validated exactly like the iframe src.
+    (function () {
+      var p = new URLSearchParams(location.search);
+      var safeRel = function (raw) {
+        if (!raw) return '';
+        var s; try { s = decodeURIComponent(raw); } catch (e) { return ''; }
+        if (/^[a-z][a-z0-9+.\-]*:/i.test(s)) return '';   // scheme:
+        if (s.indexOf('//') === 0) return '';             // protocol-relative
+        if (s.charAt(0) === '/') return '';               // root-absolute
+        return s;
+      };
+      var dec = function (raw, fb) { if (!raw) return fb; try { return decodeURIComponent(raw); } catch (e) { return fb; } };
+      var KNOWN = { 'masscompile-report': 1, 'vi-analyzer-report': 1, 'unit-tests-report': 1, 'antidoc-report': 1 };
+      var type = dec(p.get('type'), '');
+      window.LVCI = {
+        context: KNOWN[type] ? type : 'report-viewer',
+        sha: dec(p.get('sha'), ''),
+        short: dec(p.get('short'), ''),
+        platform: dec(p.get('platform'), ''),
+        embedded: true,
+        framedSrc: safeRel(p.get('src')),
+        framedTitle: dec(p.get('title'), 'CI Report')
+      };
+    })();
+  </script>
+  <script src="../lvci-header.js" defer></script>
+  <style>
+    :root{
+      --bg:#0d1117;--surface:#161b22;--border:#30363d;
+      --fg:#e6edf3;--fg-muted:#8b949e;--link:#58a6ff;
+    }
+    @media(prefers-color-scheme:light){
+      :root{
+        --bg:#ffffff;--surface:#f6f8fa;--border:#d0d7de;
+        --fg:#1f2328;--fg-muted:#57606a;--link:#0969da;
+      }
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;display:flex;flex-direction:column;background:var(--bg);color:var(--fg);
+         font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+    a{color:var(--link);text-decoration:none}
+    a:hover{text-decoration:underline}
+    /* The shared header (lvci-header.js) is the chrome; the iframe fills the
+       rest of the viewport beneath it. */
+    iframe{flex:1 1 auto;width:100%;border:0;background:var(--bg)}
+    .err{margin:auto;padding:40px;text-align:center;color:var(--fg-muted)}
+  </style>
+</head>
+<body>
+  <iframe id="frame" title="CI report"></iframe>
+  <div class="err" id="err" hidden>
+    No report selected. <a href="../">Return to the CI Dashboard</a>.
+  </div>
+  <script>
+    (function () {
+      // window.LVCI was populated from the query string in <head> (before the
+      // deferred header ran). Use it to title the tab and point the iframe at
+      // the validated, first-party report path.
+      var cfg = window.LVCI || {};
+      document.title = cfg.framedTitle || 'CI Report';
+      var frame = document.getElementById('frame');
+      var err = document.getElementById('err');
+      if (cfg.framedSrc) {
+        frame.src = cfg.framedSrc;
+      } else {
+        frame.hidden = true;
+        err.hidden = false;
+      }
+    })();
+  </script>
+</body>
+</html>
