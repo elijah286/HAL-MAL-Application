@@ -92,7 +92,9 @@ jobs:
       - name: Restore CI scripts from main
         if: github.event.inputs.commit_sha != ''
         shell: bash
-        run: git checkout origin/main -- .github/labview .github/workflows
+        run: |
+          git fetch --no-tags origin main
+          git checkout FETCH_HEAD -- .github/labview .github/workflows
 
       # Per-action container selection: config.container.actions.unit-tests wins,
       # then config.container.use. With neither set, default to the custom worker

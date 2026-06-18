@@ -77,6 +77,14 @@
   }
   var ctx = cfg.context || 'page';
 
+  // Canonical home of this tooling. The dashboard page assets are served by the
+  // action verbatim — the installer's substitutions never rewrite them — so this
+  // fallback rides onto every consumer dashboard still pointing at the root, the
+  // same way faq.html / integrate.html anchor their links. loadVersion() refines
+  // it from the same-origin catalog (and any relocation pointer it follows).
+  var SOURCE_FALLBACK_REPO = 'elijah286/HAL-MAL-Application';
+  var srcRepo = SOURCE_FALLBACK_REPO;
+
   // ── Design tokens + styles (match the GitHub-style dark/light tokens the
   //    rest of the site uses, so the header blends into every page). ─────────
   var CSS = [
@@ -512,12 +520,12 @@
         { label: 'Configure Workers', svg: ICON.configure, kind: 'configure' },
         { label: 'Unit Testing', svg: ICON.tests, kind: 'unittests' },
         { label: 'Clients', svg: ICON.clients, href: base + '/clients.html', source: true },
-        { label: 'About', svg: ICON.about, href: base + '/faq.html' }
+        { label: 'About', svg: ICON.about, href: aboutUrl(), about: true, newTab: aboutExternal() }
       ],
       'worker-manifest': [],
       'vi-browser': [
         { label: 'Clients', svg: ICON.clients, href: base + '/clients.html', source: true },
-        { label: 'About', svg: ICON.about, href: base + '/faq.html' }
+        { label: 'About', svg: ICON.about, href: aboutUrl(), about: true, newTab: aboutExternal() }
       ],
       'report-viewer': [],
       'configure': [],
@@ -528,9 +536,48 @@
     return (A[ctx] || []).filter(Boolean);
   }
 
+  // ── The canonical tooling site's Pages URL, derived from owner/repo the same
+  //    way the rest of the dashboard does (clients.html, integrate.html): a
+  //    user/org pages repo (<owner>.github.io) serves at the bare host; any other
+  //    repo is a project page under /<repo>/. Empty if the source is unknown. ──
+  function sourcePagesUrl() {
+    var p = String(srcRepo || '').split('/');
+    var owner = p[0] || '', name = p[1] || '';
+    if (!owner || !name) return '';
+    var host = owner.toLowerCase() + '.github.io';
+    return name.toLowerCase() === host ? ('https://' + host + '/')
+                                       : ('https://' + host + '/' + name + '/');
+  }
+
+  // ── About link: the About/FAQ page (faq.html) lives ONLY on the canonical
+  //    source site — it is never staged onto consumer dashboards — so the menu
+  //    entry must point at the root tooling's copy, derived from srcRepo (which
+  //    loadVersion refines from the catalog + the source.json relocation pointer)
+  //    rather than this site's own base. Falls back to the local base only if the
+  //    source is somehow unknown. aboutExternal() is true on a consumer site (the
+  //    target is a different Pages site) so the link opens in a new tab, keeping
+  //    the user's own dashboard open — the same consumer→root rule Apply uses.
+  function aboutUrl() {
+    var su = sourcePagesUrl();
+    return su ? su + 'faq.html' : base + '/faq.html';
+  }
+  function aboutExternal() {
+    var su = trimSlash(sourcePagesUrl()).toLowerCase();
+    return !!su && su !== base.toLowerCase();
+  }
+
   // ── Configure / Apply: open the dashboard's modal when present, else navigate
   //    to the standalone page (kept identical content). ──────────────────────
   function openPage(kind) {
+    // Apply to New Repo always installs from the ROOT tooling repo. On a consumer
+    // dashboard, send the user to the root site's own installer (new tab) so they
+    // always get the latest Apply-to-New-Repo page + UX — never this repo's
+    // vendored, possibly older, snapshot. On the source repo the local page IS
+    // the latest, so fall through to the inline modal / navigation below.
+    if (kind === 'integrate' && !cfg.isSource) {
+      var su = sourcePagesUrl();
+      if (su) { window.open(su + 'integrate.html', '_blank', 'noopener'); return; }
+    }
     var map = {
       configure: { src: 'configure.html' + (repo ? ('?repo=' + encodeURIComponent(repo)) : ''), title: 'Configure Workers' },
       unittests: { src: 'unit-tests.html' + (repo ? ('?repo=' + encodeURIComponent(repo)) : ''), title: 'Unit Testing' },
@@ -865,6 +912,7 @@
         }
         el.innerHTML = iconHtml(a) + esc(a.label);
         if (a.source) { el.style.display = 'none'; clientsEls.push(el); }
+        if (a.about) aboutEls.push(el);
         ddMenu.appendChild(el);
       });
       // Version / update entry — the single home for the installed version and
@@ -918,6 +966,7 @@
       secActs.forEach(function (a) {
         var el = actionEl(a, true);
         if (a.source) { el.style.display = 'none'; clientsEls.push(el); }
+        if (a.about) aboutEls.push(el);
         menu.appendChild(el);
       });
     }
@@ -1010,11 +1059,35 @@
   var runState = { active: 0, names: [] };
   var verEls = [];
   var clientsEls = [];
+  var aboutEls = [];
+  // ── Tooling-upgrade (in-flight) state ────────────────────────────────
+  // Distinct from a routine page rebuild: a REAL tooling update is being applied
+  // — the apply-tooling-update workflow is running, OR an update PR was merged
+  // and this repo's committed catalog is now ahead of the deployed build. While
+  // set, the version menu entry reads "Updating to vX…" and links to the
+  // in-flight action; the re-start "Update available" affordance is suppressed so
+  // a second update can't be kicked off on top of the one already on its way.
+  var isConsumer = false;                 // set by loadVersion (false on the source repo)
+  var upState = { active: false, to: '', url: '' };
+  var headV = '', headVAt = 0;            // this repo's committed (HEAD) catalog version
+  var lastAct = [];                       // most recent active-run list (from the activity poll)
   // Page-rebuild banner: only the dashboard shows it (there "this page is being
   // regenerated" is literally true). buildWas remembers the prior poll so we can
   // auto-refresh exactly once when an in-flight rebuild finishes.
   var REBUILD_ON = (ctx === 'dashboard');
   var buildWas = false;
+
+  // Re-point the About menu entries at the (possibly relocated) source site once
+  // loadVersion has refined srcRepo — see aboutUrl(). Keeps href + new-tab target
+  // in sync; a no-op until the menu has been built.
+  function refreshAbout() {
+    var href = aboutUrl(), ext = aboutExternal();
+    aboutEls.forEach(function (el) {
+      el.href = href;
+      if (ext) { el.target = '_blank'; el.rel = 'noopener'; }
+      else { el.removeAttribute('target'); el.removeAttribute('rel'); }
+    });
+  }
 
   // ── Version badge: read same-origin catalog.json for the installed version,
   //    and (on consumer repos) compare to the source repo to flag an update. ─
@@ -1028,10 +1101,24 @@
         if (upd && cmpVer(v, upd.v) >= 0) updClear();                        // deployed caught up
         renderBadge();
         var src = (cat.source && cat.source.repo) || '';
-        var isConsumer = src && repo && src.toLowerCase() !== repo.toLowerCase();
+        if (src) srcRepo = src;   // refine the Apply-to-New-Repo target from the live catalog
+        refreshAbout();           // re-point About at the (now known) source site's faq.html
+        isConsumer = !!(src && repo && src.toLowerCase() !== repo.toLowerCase());
         if (!isConsumer) { revealClients(); return; }   // root repo: surface Clients even before a scan has published clients.json
+        // Now that the deployed version + consumer status are known, check right
+        // away whether a tooling upgrade is mid-flight (don't wait for the poll).
+        refreshHeadCatalog().then(resolveUpgrade);
         var ref = (cat.source && cat.source.ref) || 'main';
-        fetch('https://raw.githubusercontent.com/' + src + '/' + ref + '/.github/labview-ci/catalog.json', { cache: 'no-cache' })
+        // Follow the relocation pointer (.github/labview-ci/source.json): if the
+        // tooling moved to a new official home, compare against THAT repo's latest
+        // version so the "update available" dot reflects the real source. No-op when
+        // the pointer is absent/unreachable or already names the recorded source.
+        fetch('https://raw.githubusercontent.com/' + src + '/' + ref + '/.github/labview-ci/source.json', { cache: 'no-cache' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (p) {
+            if (p && p.repo && p.repo.toLowerCase() !== src.toLowerCase()) { src = p.repo; ref = p.ref || ref; srcRepo = src; refreshAbout(); }
+            return fetch('https://raw.githubusercontent.com/' + src + '/' + ref + '/.github/labview-ci/catalog.json', { cache: 'no-cache' });
+          })
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (s) {
             if (!s || !s.version) return;
@@ -1109,6 +1196,47 @@
     setTimeout(function () { if (!anyModalOpen()) location.reload(); }, 4000);
   }
 
+  // ── Tooling-upgrade detection (consumer repos) ─────────────────────────
+  // Refresh this repo's committed (HEAD) catalog version (throttled). A value
+  // ahead of the deployed build means an update PR was merged and is deploying
+  // right now. Private/thin repos without a vendored catalog simply 404 here and
+  // fall back to the apply-tooling-update run check + the optimistic local flag.
+  function refreshHeadCatalog() {
+    if (!isConsumer || !repo) return Promise.resolve();
+    if (Date.now() - headVAt < 30000) return Promise.resolve();        // at most ~every 30s
+    headVAt = Date.now();
+    return fetch('https://raw.githubusercontent.com/' + repo + '/HEAD/.github/labview-ci/catalog.json', { cache: 'no-cache' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (c) { if (c && c.version) headV = String(c.version); })
+      .catch(function () {});
+  }
+  // Decide whether a tooling upgrade is in flight (from the active runs + the
+  // committed catalog), record where it links, and repaint. Safe to call often.
+  function resolveUpgrade() {
+    var act = lastAct || [];
+    if (!isConsumer || !repo) {
+      if (upState.active) { upState = { active: false, to: '', url: '' }; renderBadge(); }
+      return;
+    }
+    // 1) The update workflow itself is running (just dispatched / opening the PR).
+    var atu = null;
+    for (var i = 0; i < act.length; i++) {
+      if (((act[i].path || '') + '').toLowerCase().indexOf('apply-tooling-update.yml') >= 0) { atu = act[i]; break; }
+    }
+    if (atu) {
+      upState = { active: true, to: verState.to || '', url: atu.html_url || ('https://github.com/' + repo + '/actions') };
+      renderBadge(); return;
+    }
+    // 2) An update PR was merged: the committed catalog is ahead of the deployed
+    //    build, so the dashboard is rebuilding/deploying it — link to that run.
+    if (headV && verState.v && cmpVer(headV, verState.v) > 0) {
+      var dep = pickRebuild(act);
+      upState = { active: true, to: headV, url: (dep && dep.html_url) || ('https://github.com/' + repo + '/actions') };
+      renderBadge(); return;
+    }
+    if (upState.active) { upState = { active: false, to: '', url: '' }; renderBadge(); }
+  }
+
   // ── CI activity: poll the Actions API for in-flight runs. While any are
   //    queued/running, the badge above shows "N running" (with a spinner) in
   //    place of the version — so the dashboard visibly reflects work in
@@ -1149,6 +1277,11 @@
           if (buildWas && !rb) autoRefresh();   // a rebuild we were showing just finished
           buildWas = !!rb;
         }
+        // Tooling-upgrade indicator: remember the active runs, refresh the
+        // committed catalog, then decide whether a real update is mid-flight (so
+        // the menu links to it instead of offering to start another).
+        lastAct = act;
+        refreshHeadCatalog().then(resolveUpgrade);
       }).catch(function () { /* network blip: keep prior badge state */ });
   }
   function startActivity() {
@@ -1175,7 +1308,14 @@
   // update flag). Safe to call repeatedly; each surface no-ops when not on the page.
   function renderBadge() {
     var upd = updGet();
-    var updating = !!(upd && (!verState.v || cmpVer(verState.v, upd.v) < 0));
+    var localUpdating = !!(upd && (!verState.v || cmpVer(verState.v, upd.v) < 0));
+    // A real upgrade is in flight when the server says so (apply-tooling-update
+    // running, or a merged update deploying) OR this browser optimistically
+    // flagged one. Either way: show progress + link to it, never offer re-start.
+    var updating = upState.active || localUpdating;
+    var upTo = upState.active ? (upState.to || (upd && upd.v) || verState.to || '')
+                              : (upd ? upd.v : '');
+    var upUrl = upState.active ? upState.url : (repo ? ('https://github.com/' + repo + '/pulls') : '');
     var behind = !updating && verState.behind;
     var hasUpdate = updating || behind;
 
@@ -1207,15 +1347,22 @@
       a.classList.toggle('behind', hasUpdate);
       if (updating) {
         if (ic) ic.innerHTML = ICON.update;
-        if (lbl) lbl.textContent = 'Updating to v' + upd.v + '\u2026';
-        if (tag) tag.textContent = verState.v ? ('v' + verState.v + ' \u2192 v' + upd.v) : ('v' + upd.v);
-        a.title = 'An update to v' + upd.v + ' is in progress (merge the update PR to finish).';
+        if (lbl) lbl.textContent = upTo ? ('Updating to v' + upTo + '\u2026') : 'Updating\u2026';
+        if (tag) tag.textContent = (verState.v && upTo) ? ('v' + verState.v + ' \u2192 v' + upTo)
+                                  : (upTo ? ('v' + upTo) : (verState.v ? ('v' + verState.v) : ''));
+        // Link straight to the in-flight action; don't reopen What's New, which
+        // would let you dispatch a second update on top of the running one.
+        if (upUrl) { a.href = upUrl; a.target = '_blank'; a.rel = 'noopener'; }
+        else { a.href = base + '/whats-new.html'; a.removeAttribute('target'); a.removeAttribute('rel'); }
+        a.title = (upTo ? ('Updating to v' + upTo) : 'An update') + ' is in progress \u2014 click to watch the running action.';
       } else if (behind) {
+        a.href = base + '/whats-new.html'; a.removeAttribute('target'); a.removeAttribute('rel');
         if (ic) ic.innerHTML = ICON.update;
         if (lbl) lbl.textContent = 'Update available';
         if (tag) tag.textContent = 'v' + verState.v + ' \u2192 v' + verState.to;
         a.title = 'Update available: v' + verState.v + ' \u2192 v' + verState.to;
       } else {
+        a.href = base + '/whats-new.html'; a.removeAttribute('target'); a.removeAttribute('rel');
         if (ic) ic.innerHTML = ICON.news;
         if (lbl) lbl.textContent = 'What\u2019s new';
         if (tag) tag.textContent = verState.v ? ('v' + verState.v) : '';
