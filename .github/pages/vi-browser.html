@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<!--
+  .github/pages/vi-browser.html
+  Deployed to: https://elijah286.github.io/HAL-MAL-Application/vi-snapshots/index.html
+
+  Reads manifest.json and commits.json from the same directory (vi-snapshots/)
+  on the gh-pages branch and renders a browseable gallery of VI snapshots.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VI Browser — HAL-MAL-Application</title>
+  <script>window.LVCI={context:'vi-browser'};</script>
+  <script src="../lvci-header.js" defer></script>
+  <style>
+    :root{
+      --bg:#0d1117;
+      --fg:#e6edf3;
+      --fg-muted:#8b949e;
+      --border:#30363d;
+      --sidebar:#161b22;
+      --sidebar-hover:#1c2128;
+      --sidebar-active:#1f6feb33;
+      --item:#c9d1d9;
+      --link:#58a6ff;
+      --viewer-bg:#ffffff;
+      --error:#da3633;
+    }
+    @media (prefers-color-scheme: light){
+      :root{
+        --bg:#ffffff;
+        --fg:#1f2328;
+        --fg-muted:#57606a;
+        --border:#d0d7de;
+        --sidebar:#f6f8fa;
+        --sidebar-hover:#eef2f6;
+        --sidebar-active:#0969da22;
+        --item:#1f2328;
+        --link:#0969da;
+        --viewer-bg:#ffffff;
+        --error:#cf222e;
+      }
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+         background:var(--bg);color:var(--fg);display:flex;height:100vh;overflow:hidden}
+
+    /* ── Sidebar ── */
+    #sidebar{width:280px;min-width:220px;background:var(--sidebar);border-right:1px solid var(--border);
+             display:flex;flex-direction:column;overflow:hidden}
+    #sidebar-header{padding:12px 14px;border-bottom:1px solid var(--border)}
+    #sidebar-header h1{font-size:1em;color:var(--fg);margin-bottom:8px}
+    #back-to-dashboard{display:inline-flex;align-items:center;gap:5px;margin-bottom:8px;
+                       font-size:.78em;color:var(--link);text-decoration:none}
+    #back-to-dashboard:hover{text-decoration:underline}
+    #commit-select{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--border);
+                   border-radius:6px;padding:5px 8px;font-size:.8em}
+    #search{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--border);
+            border-radius:6px;padding:5px 8px;font-size:.8em;margin-top:6px}
+    #vi-list{flex:1;overflow-y:auto;padding:4px 0}
+    .tree-controls{display:flex;gap:14px;margin-top:8px}
+    .tree-controls button{background:none;border:none;padding:0;font:inherit;font-size:.72em;
+                          color:var(--link);cursor:pointer}
+    .tree-controls button:hover{text-decoration:underline}
+    .tree-row{display:flex;align-items:center;gap:6px;padding:4px 12px 4px 10px;font-size:.8em;
+              cursor:pointer;color:var(--item);white-space:nowrap;overflow:hidden;user-select:none}
+    .tree-row:hover{background:var(--sidebar-hover);color:var(--fg)}
+    .tree-row .twisty{flex:0 0 12px;width:12px;height:12px;display:inline-flex;align-items:center;
+                      justify-content:center;color:var(--fg-muted);transition:transform .12s ease}
+    .tree-row.folder.open>.twisty{transform:rotate(90deg)}
+    .tree-row .icon{flex:0 0 16px;display:inline-flex;align-items:center;justify-content:center;color:var(--fg-muted)}
+    .tree-row .label{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+    .tree-row.folder>.label{font-weight:500;color:var(--fg)}
+    .tree-row.file.active{background:var(--sidebar-active);color:var(--link)}
+    .tree-row.file.active .icon{color:var(--link)}
+    .sidebar-note{padding:16px;color:var(--fg-muted);font-size:.8em}
+    /* change indicators sourced from the VIDiff changes.json for the selected commit */
+    .chg{flex:0 0 auto;font-size:.64em;font-weight:700;padding:1px 6px;border-radius:10px;
+         color:#fff;text-transform:uppercase;letter-spacing:.03em;cursor:pointer}
+    .chg.modified{background:#9a6700}.chg.added{background:#1a7f37}.chg.deleted{background:#cf222e}
+    .chg:hover{filter:brightness(1.15)}
+    .chg-dot{flex:0 0 auto;width:7px;height:7px;border-radius:50%;background:#9a6700;opacity:.85}
+    /* "Changed only" toggle (shown only when the commit has VIDiff data) */
+    .changed-toggle{display:none;align-items:center;gap:6px;margin-top:8px;font-size:.74em;
+                    color:var(--fg-muted);cursor:pointer;user-select:none}
+    .changed-toggle input{margin:0;accent-color:var(--link)}
+    .changed-toggle .count{color:var(--fg-muted);font-weight:600}
+
+    /* ── Main panel ── */
+    #main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+    #toolbar{padding:8px 14px;border-bottom:1px solid var(--border);background:var(--sidebar);
+             font-size:.82em;color:var(--fg-muted);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    #vi-title{font-weight:600;color:var(--fg)}
+    /* Linux/Windows diff-report switch (shown when a VI has reports on both) */
+    #plat-toggle{display:none;align-items:center;border:1px solid var(--border);border-radius:7px;
+                 overflow:hidden;font-size:.92em}
+    #plat-toggle button{border:none;background:var(--bg);color:var(--fg-muted);cursor:pointer;
+                        padding:3px 10px;font:inherit;font-weight:600}
+    #plat-toggle button:hover:not(.active){background:var(--sidebar-hover);color:var(--fg)}
+    #plat-toggle button.active{background:var(--link);color:#fff}
+    #plat-toggle button:disabled{opacity:.4;cursor:default}
+    #plat-toggle .sep{width:1px;background:var(--border)}
+    /* 1.0 / 2.0 VI Browser switch — classic flat viewer vs the in-place renderer */
+    #viewer-toggle-label{color:var(--fg-muted);font-size:.8em;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+    #viewer-toggle{display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:7px;
+                   overflow:hidden;font-size:.92em}
+    #viewer-toggle button{border:none;background:var(--bg);color:var(--fg-muted);cursor:pointer;
+                          padding:3px 11px;font:inherit;font-weight:600}
+    #viewer-toggle button:hover:not(.active){background:var(--sidebar-hover);color:var(--fg)}
+    #viewer-toggle button.active{background:var(--link);color:#fff}
+    #viewer-toggle .sep{width:1px;background:var(--border)}
+    #viewer-mode-note{display:none;color:var(--fg-muted);font-size:.82em;font-style:italic}
+    #viewer-mode-note.show{display:inline}
+    #viewer{flex:1;overflow:hidden;position:relative}
+    #viewer iframe{width:100%;height:100%;border:none;background:var(--viewer-bg)}
+    #viewer-loading{position:absolute;inset:0;z-index:3;display:none;align-items:center;
+                    justify-content:center;gap:10px;background:var(--viewer-bg);
+                    color:var(--fg-muted);font-size:.85em}
+    #viewer-loading.show{display:flex}
+    #viewer-loading .spinner{width:18px;height:18px;border:2px solid var(--border);
+                    border-top-color:var(--link);border-radius:50%;animation:spin .7s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    #viewer-hint{margin-left:auto;color:var(--fg-muted);font-size:.92em;display:none}
+    #viewer-hint kbd{font:inherit;background:var(--bg);border:1px solid var(--border);
+                     border-radius:4px;padding:0 4px}
+    #empty{flex:1;display:flex;align-items:center;justify-content:center;
+           flex-direction:column;color:var(--fg-muted);gap:10px}
+    #empty svg{opacity:.3}
+  </style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div id="sidebar-header">
+    <a id="back-to-dashboard" href="../" title="Back to the CI Dashboard">&larr; CI Dashboard</a>
+    <h1>VI Browser</h1>
+    <select id="commit-select"><option value="">Loading commits…</option></select>
+    <input id="search" type="search" placeholder="Filter VIs…">
+    <div class="tree-controls">
+      <button id="expand-all" type="button">Expand all</button>
+      <button id="collapse-all" type="button">Collapse all</button>
+    </div>
+    <label class="changed-toggle" id="changed-toggle" for="changed-only">
+      <input type="checkbox" id="changed-only">
+      Changed VIs only <span class="count" id="changed-count"></span>
+    </label>
+  </div>
+  <div id="vi-list"></div>
+</div>
+
+<div id="main">
+  <div id="toolbar">
+    <span id="viewer-toggle-label">Viewer</span>
+    <span id="viewer-toggle" title="Switch between the classic VI Browser (1.0) and the in-place renderer (2.0)">
+      <button type="button" data-viewer="1" title="1.0 — classic gallery: front panel + block diagram, with each structure's cases in a stepper below the diagram">1.0</button>
+      <span class="sep"></span>
+      <button type="button" data-viewer="2" title="2.0 — in-place renderer: Case / Event structures navigated on the diagram itself, like the LabVIEW editor">2.0</button>
+    </span>
+    <span id="viewer-mode-note"></span>
+    <span id="vi-title">Select a VI from the sidebar</span>
+    <a id="diff-link" href="#" style="color:var(--link);font-weight:600;display:none">View diff report &rarr;</a>
+    <span id="plat-toggle" title="Swap the diff report between the Linux and Windows container renders">
+      <button type="button" data-plat="linux">Linux</button>
+      <span class="sep"></span>
+      <button type="button" data-plat="windows">Windows</button>
+    </span>
+    <a id="open-link" href="#" target="_blank" style="color:var(--link);display:none">Open in new tab ↗</a>
+    <span id="viewer-hint">Drag to pan &middot; <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+scroll to zoom &middot; <kbd>◀</kbd><kbd>▶</kbd> to scroll a structure's cases</span>
+  </div>
+  <div id="empty">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+    </svg>
+    <span>Select a VI to view its front panel and block diagram</span>
+  </div>
+  <div id="viewer" style="display:none">
+    <iframe id="vi-frame" title="VI Snapshot"></iframe>
+    <!-- Position-aware in-place renderer. Preferred whenever a frames JSON sits
+         beside the snapshot HTML; otherwise the iframe above shows the flat snapshot. -->
+    <div id="vi-canvas" style="position:absolute;inset:0;display:none;z-index:2"></div>
+    <!-- 2.0 not provisioned for this repo (no render token => no frames JSON):
+         show a gated empty state with two steps -- get a token from the private
+         render repo, then enter it in the dashboard prompt -- not a silent 1.0. -->
+    <div id="vi-needtoken" style="position:absolute;inset:0;display:none;z-index:3;overflow:auto;padding:28px;box-sizing:border-box;background:var(--bg)">
+      <div style="max-width:560px;margin:7vh auto 0;text-align:center">
+        <!-- LOCK VIEW: shown until the render token is connected -->
+        <div id="nt-lock">
+          <div style="font-size:2.6em;line-height:1;margin-bottom:14px">&#128274;</div>
+          <h2 style="margin:0 0 10px;font-size:1.3em;color:var(--fg)">VI Browser 2.0 needs a render token</h2>
+          <p style="color:var(--fg-muted);margin:0 0 18px">The in-place renderer runs from a private image, so 2.0 only activates once this repository is provisioned with a render token. Until then, position-aware snapshots aren&rsquo;t available here.</p>
+          <ol style="display:inline-block;text-align:left;max-width:470px;margin:0 0 6px;padding-left:22px;color:var(--fg);line-height:1.55">
+            <li style="margin-bottom:13px"><a id="needtoken-link" href="#" target="_blank" rel="noopener" style="color:var(--link);font-weight:600">Get a render token &#8599;</a> &mdash; opens GitHub with the <strong>read:packages</strong> scope preselected. You need access to the private render image.</li>
+            <li>
+              <div style="font-weight:600;margin-bottom:6px">Paste the render token to connect</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <input id="nt-token" type="password" autocomplete="off" spellcheck="false" placeholder="ghp_&hellip; or github_pat_&hellip;" style="flex:1 1 210px;min-width:0;padding:7px 9px;border:1px solid var(--border,#d0d7de);border-radius:7px;background:var(--bg);color:var(--fg);font:inherit">
+                <button id="nt-connect" type="button" style="padding:7px 16px;border:0;border-radius:7px;background:var(--link);color:#fff;font-weight:600;cursor:pointer">Connect</button>
+              </div>
+              <div id="nt-repo-row" style="color:var(--fg-muted);font-size:.8em;margin-top:6px"></div>
+              <div id="nt-status" role="status" style="font-size:.85em;margin-top:6px;min-height:1.1em"></div>
+            </li>
+          </ol>
+          <p style="color:var(--fg-muted);font-size:.85em;margin-top:16px">The token is sealed in your browser (libsodium) and saved as the <strong>TOIMAGES_REGISTRY_TOKEN</strong> secret &mdash; it never reaches this page&rsquo;s host. Or switch to <strong>1.0</strong> for the classic view.</p>
+        </div>
+        <!-- SUCCESS VIEW: replaces the lock dialog once the render token is connected -->
+        <div id="nt-success" style="display:none">
+          <div style="font-size:2.6em;line-height:1;margin-bottom:14px;color:#2da44e">&#10003;</div>
+          <h2 style="margin:0 0 10px;font-size:1.3em;color:var(--fg)">Connected to the render image</h2>
+          <p id="nt-conn-detail" style="color:var(--fg-muted);margin:0 0 18px"></p>
+          <div id="nt-step3" style="margin:8px 0 0">
+            <button id="nt-generate" type="button" style="padding:9px 18px;border:0;border-radius:8px;background:#2da44e;color:#fff;font-weight:600;font-size:1.02em;cursor:pointer">&#9889; Generate the 2.0 snapshot</button>
+            <div id="nt-gen-status" role="status" style="font-size:.85em;margin-top:8px;color:var(--fg-muted)"></div>
+          </div>
+        </div>
+        <!-- Shared one-time token prompt: setup token for Connect, dispatch token for Generate -->
+        <div id="nt-tokp" style="display:none;margin:14px auto 0;max-width:470px;padding:11px 12px;border:1px solid var(--border,#d0d7de);border-radius:9px;background:rgba(127,127,127,.06);text-align:left">
+          <div id="nt-tokp-msg" style="font-size:.85em;margin-bottom:7px"></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <input id="nt-tokp-input" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_&hellip;" style="flex:1 1 200px;min-width:0;padding:6px 9px;border:1px solid var(--border,#d0d7de);border-radius:7px;background:var(--bg);color:var(--fg);font:inherit">
+            <button id="nt-tokp-save" type="button" style="padding:6px 14px;border:0;border-radius:7px;background:var(--link);color:#fff;font-weight:600;cursor:pointer">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="viewer-loading"><span class="spinner"></span><span>Rendering…</span></div>
+  </div>
+</div>
+
+<script src="vi-render.js"></script>
+<script>
+// Resolve the directory this page lives in. Stripping the trailing path segment
+// yields the same base whether the page is opened as ".../vi-snapshots/" or as
+// ".../vi-snapshots/index.html" (the dashboard deep-links use index.html?sha=).
+// The previous regex appended a slash to "index.html", which 404'd commits.json
+// and showed "No snapshots yet".
+const BASE = window.location.pathname.replace(/[^/]*$/, '');
+
+async function fetchJson(url) {
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error(`${r.status} ${url}`);
+  return r.json();
+}
+
+let manifest = [];
+let treeRoot = null;             // hierarchical tree built from each VI's vi_rel path
+const expanded = new Set();      // folder paths currently expanded (persists across commits)
+let activeHtml = null;           // html of the currently-open VI (drives row highlight)
+let changeMap = {};              // vi_rel -> { type, url, isDiff } for VIs changed in this commit
+let changedFolders = new Set();  // folder paths that contain >=1 changed VI (for the folder dot)
+let changedOnly = new URLSearchParams(location.search).get('changed') === '1'; // down-filter to changed VIs
+let commitList = [];             // union of files.json + commits.json (newest first); used to find the previous revision
+const manifestCache = new Map(); // sha -> manifest (so diffing against the previous commit is cheap)
+const filesVisBySha = new Map(); // sha -> [{vi_rel, blob}] from files.json: every project revision's VI blobs, snapshot-independent
+// Diff reports are rendered by both the Linux and Windows containers; this is the
+// platform currently shown. The user can swap to compare container output. The
+// choice persists across VIs/commits via the URL (?plat=) and this variable.
+// Windows is the default render; pass ?plat=linux to open the Linux report instead.
+let diffPlatform = (new URLSearchParams(location.search).get('plat') === 'linux') ? 'linux' : 'windows';
+let commitPlatforms = new Set(); // which platforms published a report for the active commit
+let currentDiffVi = null;        // vi_rel of the diff currently shown (so the toggle can reload it)
+let currentDiffRow = null;       // the tree row backing the current view (for re-activation)
+// VI Browser viewer mode: '1' = classic flat gallery (enhanceSnapshot iframe),
+// '2' = in-place renderer (vi-render.js). Persists via ?viewer=. Defaults to 1.0
+// (the proven classic view); switch to 2.0 to evaluate the in-place renderer. 2.0
+// uses each VI's frames JSON and gracefully falls back to 1.0 when none exists yet.
+let viewerMode = (new URLSearchParams(location.search).get('viewer') === '2') ? '2' : '1';
+let currentSnapshot = null;      // { html, title } of the open plain snapshot (re-rendered on a 1.0/2.0 switch)
+
+const ICON = {
+  chevron: '<svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor"><path d="M6 4l4 4-4 4z"/></svg>',
+  folder:  '<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M1.5 4A1.5 1.5 0 013 2.5h2.8L7.3 4H13A1.5 1.5 0 0114.5 5.5v6A1.5 1.5 0 0113 13H3a1.5 1.5 0 01-1.5-1.5z"/></svg>',
+  vi:      '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="3.2" y="2.2" width="9.6" height="11.6" rx="1.5"/><path d="M5.6 6h4.8M5.6 8.4h4.8M5.6 10.8h3"/></svg>',
+};
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+// Build a folder tree from the flat manifest using each VI's on-disk relative path.
+function buildTree(items) {
+  const root = { name:'', path:'', dirs:new Map(), files:[] };
+  for (const v of items) {
+    const parts = v.vi_rel.split('/');
+    parts.pop();                       // drop the file name; the rest are folders
+    let node = root, acc = '';
+    for (const p of parts) {
+      acc = acc ? acc + '/' + p : p;
+      if (!node.dirs.has(p)) node.dirs.set(p, { name:p, path:acc, dirs:new Map(), files:[] });
+      node = node.dirs.get(p);
+    }
+    node.files.push(v);
+  }
+  return root;
+}
+
+function allFolderPaths(node, out = []) {
+  for (const child of node.dirs.values()) { out.push(child.path); allFolderPaths(child, out); }
+  return out;
+}
+
+// On a visitor's first ever open of the VI Browser, expand the whole folder tree
+// so the structure is visible at a glance. A localStorage flag keeps this a
+// one-time courtesy: on later visits the tree loads collapsed as before. The
+// in-memory guard makes it fire only for the first manifest built this load (not
+// on every commit switch) and also covers private-mode browsers where the flag
+// can't be persisted.
+let didAutoExpand = false;
+function maybeAutoExpandFirstVisit() {
+  if (didAutoExpand || !treeRoot) return;
+  let seen = false;
+  try { seen = localStorage.getItem('lvci.vi-browser.visited') === '1'; } catch (e) {}
+  if (seen) { didAutoExpand = true; return; }
+  const folders = allFolderPaths(treeRoot);
+  if (!folders.length) return;        // nothing to expand yet; retry on the next manifest
+  folders.forEach(p => expanded.add(p));
+  didAutoExpand = true;
+  try { localStorage.setItem('lvci.vi-browser.visited', '1'); } catch (e) {}
+}
+
+// A VI passes the active filters when it matches the text query AND, if the
+// "Changed VIs only" toggle is on, has a VIDiff change entry for this commit.
+function fileVisible(v, f) {
+  if (changedOnly && !changeMap[v.vi_rel]) return false;
+  if (f && !(v.vi_name.toLowerCase().includes(f) || v.vi_rel.toLowerCase().includes(f))) return false;
+  return true;
+}
+
+// True if the folder (or any descendant) contains a VI that passes the filters.
+function nodeHasVisible(node, f) {
+  for (const v of node.files) if (fileVisible(v, f)) return true;
+  for (const child of node.dirs.values()) if (nodeHasVisible(child, f)) return true;
+  return false;
+}
+
+async function loadCommits() {
+  // Two sources, unioned:
+  //   • commits.json — revisions that have rendered snapshots (newest first).
+  //   • files.json   — EVERY project (VI-touching) revision with its per-VI blob
+  //     SHAs, emitted by the dashboard generator from `git log`, independent of
+  //     whether snapshots ran.
+  // files.json is what makes the change/diff view work for every revision: the
+  // dropdown, the previous-revision baseline for the blob diff (it preserves the
+  // same commit order VIDiff uses to pick a base), and the manifest fallback all
+  // come from it. Without this union the dropdown held only the single snapshot
+  // commit, so the "previous revision" was always missing and every VI looked
+  // unchanged — the diff view reported "no changes" even for revisions that did
+  // change a VI.
+  const [snapCommits, filesDoc] = await Promise.all([
+    fetchJson(BASE + 'commits.json').catch(() => []),
+    fetchJson(BASE + 'files.json').catch(() => null),
+  ]);
+  const fileCommits = (filesDoc && Array.isArray(filesDoc.commits)) ? filesDoc.commits : [];
+  const fileShas = new Set(fileCommits.map(c => c.sha));
+  const order = [];
+  const bySha = new Map();
+  const put = (c) => {
+    if (!c || !c.sha) return;
+    bySha.set(c.sha, Object.assign({}, bySha.get(c.sha), c));
+    if (!order.includes(c.sha)) order.push(c.sha);
+  };
+  // Snapshot-only revisions first (e.g. the latest CI commit); project commits
+  // are ordered authoritatively by files.json just below.
+  for (const c of (Array.isArray(snapCommits) ? snapCommits : [])) if (!fileShas.has(c.sha)) put(c);
+  // Full project history in commit order, carrying each revision's VI blob list.
+  for (const c of fileCommits) {
+    put({ sha: c.sha, short: c.short, message: c.message, author: c.author, date: c.date });
+    if (Array.isArray(c.vis)) filesVisBySha.set(c.sha, c.vis);
+  }
+  commitList = order.map(s => bySha.get(s));
+
+  const sel = document.getElementById('commit-select');
+  sel.innerHTML = '';
+  if (!commitList.length) {
+    sel.innerHTML = '<option value="">No snapshots yet</option>';
+    return;
+  }
+  for (const c of commitList) {
+    const opt = document.createElement('option');
+    opt.value   = c.sha;
+    opt.textContent = `${c.short} — ${(c.message || '').slice(0, 40)}`;
+    sel.appendChild(opt);
+  }
+  sel.addEventListener('change', () => loadManifest(sel.value));
+  const initSha = new URLSearchParams(window.location.search).get('sha');
+  const startSha = (initSha && commitList.find(c => c.sha === initSha)) ? initSha : commitList[0].sha;
+  sel.value = startSha;
+  loadManifest(startSha);
+}
+
+// Fetch (and cache) the manifest for any commit — used both for the active view and
+// for diffing the active commit against the previous one. Falls back to the VI list
+// from files.json when a revision has no rendered snapshot manifest, so the tree and
+// the blob diff still work for every project revision (snapshot HTML is content-
+// addressed by blob, so each VI's snapshot path is derivable from its blob SHA).
+async function getManifest(sha) {
+  if (manifestCache.has(sha)) return manifestCache.get(sha);
+  let m = await fetchJson(BASE + sha + '/manifest.json').catch(() => []);
+  if ((!Array.isArray(m) || !m.length) && filesVisBySha.has(sha)) {
+    m = filesVisBySha.get(sha).map(v => viEntryFromBlob(v.vi_rel, v.blob));
+  }
+  manifestCache.set(sha, m);
+  return m;
+}
+
+// Build a manifest-shaped entry from a VI path + its content-addressed blob SHA.
+function viEntryFromBlob(viRel, blob) {
+  const base = (viRel || '').split('/').pop() || viRel;
+  const dot  = base.lastIndexOf('.');
+  return {
+    vi_name: dot > 0 ? base.slice(0, dot) : base,
+    group:   (viRel || '').split('/')[0] || '',
+    vi_rel:  viRel,
+    blob:    blob,
+    html:    blob ? `by-blob/${blob.slice(0, 2)}/${blob}.html` : '',
+  };
+}
+
+async function loadManifest(sha) {
+  manifest = await getManifest(sha);
+  treeRoot = buildTree(manifest);
+  maybeAutoExpandFirstVisit();   // first-ever visit opens with the tree fully expanded
+  activeHtml = null;
+  await loadChanges(sha);
+  updateChangedToggle();
+  renderList(document.getElementById('search').value);
+}
+
+// Always show the "Changed VIs only" toggle so the feature is discoverable. The
+// count reflects how many VIs changed in this revision; when zero, the toggle is
+// disabled with a hint instead of being hidden.
+function updateChangedToggle() {
+  const count = Object.keys(changeMap).length;
+  const wrap  = document.getElementById('changed-toggle');
+  const box   = document.getElementById('changed-only');
+  document.getElementById('changed-count').textContent = count ? `(${count})` : '(0)';
+  wrap.style.display = 'inline-flex';
+  wrap.title = count ? '' : 'This revision did not change any VIs.';
+  wrap.style.opacity = count ? '1' : '.5';
+  box.disabled = !count;
+  if (!count) changedOnly = false;
+  box.checked = changedOnly;
+}
+
+// Determine which VIs changed in this revision by comparing its content-addressed
+// snapshot manifest to the previous commit's (blob SHA == VI content identity).
+// This works for every commit in the dropdown, independent of whether a VIDiff run
+// exists. When a VIDiff side-by-side report IS available for a changed VI, the entry
+// links to it; otherwise it links to that VI's snapshot.
+async function loadChanges(sha) {
+  changeMap = {};
+  changedFolders = new Set();
+
+  // 1) Blob diff against the previous (older) revision in the dropdown.
+  const idx = commitList.findIndex(c => c.sha === sha);
+  const prev = idx >= 0 && idx + 1 < commitList.length ? commitList[idx + 1] : null;
+  const prevBlob = new Map();
+  if (prev) {
+    for (const v of await getManifest(prev.sha)) prevBlob.set(v.vi_rel, v.blob);
+  }
+  for (const v of manifest) {
+    let type = null;
+    if (!prev) { type = null; }                       // no baseline -> treat as unchanged
+    else if (!prevBlob.has(v.vi_rel)) type = 'added';
+    else if (prevBlob.get(v.vi_rel) !== v.blob) type = 'modified';
+    if (type) {
+      changeMap[v.vi_rel] = { type, url: BASE + v.html, isDiff: false };
+      const parts = v.vi_rel.split('/'); parts.pop();
+      let acc = '';
+      for (const p of parts) { acc = acc ? acc + '/' + p : p; changedFolders.add(acc); }
+    }
+  }
+
+  // 2) Enrich changed VIs with their VIDiff side-by-side reports, and surface any
+  //    VI a container's VIDiff run flagged as changed that the blob diff did not
+  //    (e.g. the oldest revision, whose VIDiff base predates the snapshot history).
+  //    changes.json is the container's authoritative changed-file list, so a VI
+  //    that has a report always appears. Each VI may have a report from BOTH
+  //    containers; we record per-platform URLs so the user can toggle Linux <->
+  //    Windows.
+  const root = BASE.replace(/vi-snapshots\/$/, '');
+  const htmlByRel = new Map(manifest.map(v => [v.vi_rel, v.html]));
+  commitPlatforms = new Set();
+  for (const platform of ['linux', 'windows']) {
+    const dir = `${root}vidiff/push-${sha}/${platform}/vidiff/`;
+    let data = null;
+    try { data = await fetchJson(dir + 'changes.json'); } catch (e) { continue; }
+    if (data && Array.isArray(data.files) && data.files.length) {
+      commitPlatforms.add(platform);
+      for (const f of data.files) {
+        if (!f.file) continue;
+        let chg = changeMap[f.file];
+        if (!chg) {
+          // Missed by the blob diff. Only surface VIs present in this revision's
+          // tree (a deleted VI has no row to attach to and can't be displayed).
+          if (!htmlByRel.has(f.file)) continue;
+          chg = changeMap[f.file] = { type: f.type || 'modified', url: BASE + htmlByRel.get(f.file), isDiff: false };
+          const parts = f.file.split('/'); parts.pop();
+          let acc = '';
+          for (const p of parts) { acc = acc ? acc + '/' + p : p; changedFolders.add(acc); }
+        }
+        (chg.reports || (chg.reports = {}))[platform] = dir + f.report;
+        chg.isDiff = true;
+      }
+    }
+  }
+}
+
+// Resolve the diff-report URL for a VI, preferring the selected platform but
+// falling back to the other one if only it rendered this VI. Returns {url, platform}
+// or null when no side-by-side report exists (caller shows the snapshot instead).
+function diffReportFor(viRel) {
+  const chg = changeMap[viRel];
+  if (!chg || !chg.reports) return null;
+  if (chg.reports[diffPlatform]) return { url: chg.reports[diffPlatform], platform: diffPlatform };
+  const other = diffPlatform === 'linux' ? 'windows' : 'linux';
+  if (chg.reports[other]) return { url: chg.reports[other], platform: other };
+  return null;
+}
+
+// Render a tree node's folders (then files) into the fragment. When a filter is
+// active, non-matching branches are pruned and matching ones are force-expanded.
+function renderTree(node, depth, f, frag) {
+  const pad = (10 + depth * 14) + 'px';
+  const dirNames = [...node.dirs.keys()].sort((a, b) => a.localeCompare(b, undefined, { sensitivity:'base' }));
+  for (const name of dirNames) {
+    const child = node.dirs.get(name);
+    if (!nodeHasVisible(child, f)) continue;
+    // Auto-expand while any filter (text or changed-only) is narrowing the tree.
+    const forceOpen = !!f || changedOnly;
+    const open = forceOpen ? true : expanded.has(child.path);
+    const row = document.createElement('div');
+    row.className = 'tree-row folder' + (open ? ' open' : '');
+    row.style.paddingLeft = pad;
+    row.title = child.path;
+    const dot = changedFolders.has(child.path) ? '<span class="chg-dot" title="contains changed VIs"></span>' : '';
+    row.innerHTML =
+      `<span class="twisty">${ICON.chevron}</span>` +
+      `<span class="icon">${ICON.folder}</span>` +
+      `<span class="label">${escapeHtml(name)}</span>` + dot;
+    row.addEventListener('click', () => {
+      if (expanded.has(child.path)) expanded.delete(child.path); else expanded.add(child.path);
+      renderList(document.getElementById('search').value);
+    });
+    frag.appendChild(row);
+    if (open) renderTree(child, depth + 1, f, frag);
+  }
+  const files = node.files.slice().sort((a, b) => a.vi_name.localeCompare(b.vi_name, undefined, { sensitivity:'base' }));
+  for (const v of files) {
+    if (!fileVisible(v, f)) continue;
+    const row = document.createElement('div');
+    row.className = 'tree-row file' + (v.html === activeHtml ? ' active' : '');
+    row.style.paddingLeft = pad;
+    row.title = v.vi_rel;
+    row.dataset.html = v.html;
+    row.dataset.name = v.vi_rel;
+    row.innerHTML =
+      `<span class="twisty"></span>` +
+      `<span class="icon">${ICON.vi}</span>` +
+      `<span class="label">${escapeHtml(v.vi_name)}</span>`;
+    row.addEventListener('click', () => openVI(row));
+    const chg = changeMap[v.vi_rel];
+    if (chg) {
+      const badge = document.createElement('span');
+      badge.className = 'chg ' + chg.type;
+      // "diff" only when a true side-by-side report exists; otherwise just the type.
+      badge.textContent = (chg.type === 'modified' && chg.isDiff) ? 'diff' : chg.type;
+      badge.title = chg.isDiff
+        ? `View side-by-side diff report (${chg.type})`
+        : `VI ${chg.type} in this revision`;
+      badge.addEventListener('click', (e) => { e.stopPropagation(); openDiff(v.vi_rel, chg.type, row); });
+      row.appendChild(badge);
+    }
+    frag.appendChild(row);
+  }
+}
+
+function renderList(filter) {
+  const f = (filter || '').trim().toLowerCase();
+  const container = document.getElementById('vi-list');
+  container.innerHTML = '';
+  if (!treeRoot || !manifest.length) {
+    container.innerHTML = '<div class="sidebar-note">No VIs in this revision.</div>';
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  renderTree(treeRoot, 0, f, frag);
+  if (!frag.childNodes.length) {
+    const msg = changedOnly ? 'No changed VIs in this revision.' : 'No VIs match the filter.';
+    container.innerHTML = `<div class="sidebar-note">${msg}</div>`;
+    return;
+  }
+  container.appendChild(frag);
+}
+
+function setActiveRow(row) {
+  document.querySelectorAll('.tree-row.file.active').forEach(el => el.classList.remove('active'));
+  if (row) row.classList.add('active');
+}
+
+function setViewerLoading(on) {
+  const el = document.getElementById('viewer-loading');
+  if (el) el.classList.toggle('show', !!on);
+}
+
+// Open a plain VI snapshot. Prefer the position-aware frames JSON (in-place
+// renderer) when one sits beside the snapshot HTML; otherwise fall back to the
+// flat-HTML iframe + enhanceSnapshot (unchanged behaviour). The JSON is content-
+// addressed next to the .html (by-blob/<ab>/<blob>.json), so a VI auto-upgrades to
+// the in-place view the moment its frames JSON is rendered — no gallery changes.
+let lvController = null;
+function openSnapshot(htmlUrl, title) {
+  // 1.0 (classic): always the flat-HTML iframe + enhanceSnapshot stepper view.
+  if (viewerMode !== '2') { setViewerModeNote(''); showInFrame(htmlUrl, title); return; }
+  // 2.0 (in-place): prefer the position-aware frames JSON; gracefully fall back to
+  // the classic view when this VI has no frames JSON yet (e.g. before the backend
+  // that emits <blob>.json has rendered it).
+  const jsonUrl = htmlUrl.replace(/\.html$/i, '.json');
+  setViewerLoading(true);
+  fetch(jsonUrl, { cache: 'no-store' })
+    .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+    .then(frames => {
+      if (!window.LVRender || !Array.isArray(frames) || !frames.length) throw new Error('no frames');
+      setViewerModeNote('');
+      showInPlace(frames, htmlUrl, title);
+    })
+    .catch(() => {
+      // 2.0 selected but this repo has no frames JSON (not provisioned with a
+      // render token). Show the gated empty state instead of silently using 1.0.
+      setViewerModeNote('');
+      showNeedsToken(htmlUrl, title);
+    });
+}
+
+// Render the in-place diagram into #vi-canvas (same-origin parent document).
+function showInPlace(frames, htmlUrl, title) {
+  document.getElementById('vi-title').textContent = title;
+  const open = document.getElementById('open-link');
+  open.href = htmlUrl; open.style.display = 'inline';
+  const hint = document.getElementById('viewer-hint');
+  if (hint) hint.style.display = 'inline-block';
+  document.getElementById('empty').style.display  = 'none';
+  document.getElementById('viewer').style.display = 'block';
+  document.getElementById('vi-frame').style.display = 'none';
+  const nt0 = document.getElementById('vi-needtoken'); if (nt0) nt0.style.display = 'none';
+  const canvas = document.getElementById('vi-canvas');
+  canvas.style.display = 'block';
+  if (lvController) { try { lvController.destroy(); } catch (e) {} }
+  lvController = window.LVRender.render(canvas, frames, {});
+  setViewerLoading(false);
+}
+
+function showNeedsToken(htmlUrl, title) {
+  // 2.0 gated empty state: no render token => no frames JSON for this repo.
+  const canvas = document.getElementById('vi-canvas');
+  if (canvas) canvas.style.display = 'none';
+  if (lvController) { try { lvController.destroy(); } catch (e) {} lvController = null; }
+  const frameEl = document.getElementById('vi-frame');
+  if (frameEl) frameEl.style.display = 'none';
+  document.getElementById('vi-title').textContent = title;
+  const open = document.getElementById('open-link');
+  if (open) { open.href = htmlUrl; open.style.display = 'inline'; }
+  const hint = document.getElementById('viewer-hint');
+  if (hint) hint.style.display = 'none';
+  document.getElementById('empty').style.display  = 'none';
+  document.getElementById('viewer').style.display = 'block';
+  const nt = document.getElementById('vi-needtoken'); if (nt) nt.style.display = 'block';
+  setViewerLoading(false);
+}
+
+function showInFrame(url, title) {
+  // Leaving any in-place render: hide the canvas and restore the iframe.
+  const canvas = document.getElementById('vi-canvas');
+  if (canvas) canvas.style.display = 'none';
+  const ntf = document.getElementById('vi-needtoken'); if (ntf) ntf.style.display = 'none';
+  if (lvController) { try { lvController.destroy(); } catch (e) {} lvController = null; }
+  const frameEl = document.getElementById('vi-frame');
+  if (frameEl) frameEl.style.display = 'block';
+  document.getElementById('vi-title').textContent = title;
+  const open = document.getElementById('open-link');
+  open.href = url; open.style.display = 'inline';
+  const hint = document.getElementById('viewer-hint');
+  if (hint) hint.style.display = 'inline-block';
+  document.getElementById('empty').style.display  = 'none';
+  document.getElementById('viewer').style.display = 'block';
+  const frame = document.getElementById('vi-frame');
+  setViewerLoading(true);
+  // The snapshot is same-origin (gh-pages), so we can restyle its DOM on load to
+  // make images fit/zoom and turn a Case/Event structure's frames into a stepper.
+  frame.onload = () => {
+    try { enhanceSnapshot(frame.contentDocument); }
+    catch (e) { /* cross-origin or unexpected DOM: fall back to the raw snapshot */ }
+    setViewerLoading(false);
+  };
+  frame.src = url;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Snapshot viewer enhancements (run inside the same-origin snapshot iframe):
+//   • every diagram image scales to fit the viewer width
+//   • Connector Pane / Front Panel / Block Diagram / Hierarchy images become
+//     zoomable & pannable (toolbar, double-click, Ctrl/⌘+wheel, drag)
+//   • the top-level block diagram stays visible at the top, and each Case/Event/
+//     Sequence structure's extra cases (the consecutive Block Diagram images
+//     LabVIEW emits) are grouped into their own scrollable window so the user
+//     can page through one structure's cases in place, LabVIEW-style, instead of
+//     a single flat stack that mixes the diagram with every case
+// ───────────────────────────────────────────────────────────────────────────
+const ENHANCE_CSS = `
+*{box-sizing:border-box}
+html,body{margin:0}
+body{padding:18px 20px 64px;font:14px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1f2328;background:#fff;max-width:1180px;margin:0 auto}
+h1,h2{font-size:1.2em;margin:.2em 0 .45em}
+h3{font-size:1.02em;margin:1.5em 0 .55em;padding-bottom:.3em;border-bottom:1px solid #d0d7de}
+hr{border:none;border-top:1px solid #eaeef2;margin:1.3em 0}
+img{max-width:100%;height:auto}
+table{border-collapse:collapse;max-width:100%}
+.vi-fig{position:relative;margin:.6em 0;border:1px solid #d0d7de;border-radius:10px;background:#fbfcfd;overflow:hidden}
+.vi-fig__view{overflow:hidden;max-height:none;text-align:center}
+.vi-fig__view.zoomed{cursor:grab;text-align:left}
+.vi-fig__view.grabbing{cursor:grabbing}
+.vi-img{display:block;max-width:100%;height:auto;margin:0 auto;-webkit-user-drag:none;user-select:none}
+.vi-fig__view.zoomed .vi-img{margin:0}
+.vi-fig__bar{position:absolute;top:8px;right:8px;display:flex;gap:1px;background:rgba(255,255,255,.93);border:1px solid #d0d7de;border-radius:7px;padding:2px;box-shadow:0 1px 4px rgba(31,35,40,.16);opacity:0;transition:opacity .15s}
+.vi-fig:hover .vi-fig__bar,.vi-fig__view.zoomed~.vi-fig__bar{opacity:1}
+.vi-fig__bar button{border:none;background:none;font:600 13px/1 system-ui,sans-serif;color:#1f2328;cursor:pointer;padding:5px 9px;border-radius:5px;min-width:34px}
+.vi-fig__bar button:hover{background:#eaeef2}
+.vi-stepper{margin:.6em 0}
+.vi-stepper__bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:.55em;padding:7px 11px;background:#f6f8fa;border:1px solid #d0d7de;border-radius:9px;font-size:.9em}
+.vi-step-btn{border:1px solid #d0d7de;background:#fff;color:#1f2328;cursor:pointer;padding:4px 11px;border-radius:6px;font:600 .92em system-ui,sans-serif}
+.vi-step-btn:hover:not(:disabled){background:#eaeef2}
+.vi-step-btn:disabled{opacity:.4;cursor:default}
+.vi-step-label{font-weight:700;min-width:96px;text-align:center}
+.vi-step-hint{color:#8b949e;font-size:.82em;text-transform:uppercase;letter-spacing:.04em}
+.vi-step-range{flex:1 1 150px;max-width:340px;accent-color:#0969da}
+.vi-stepper{margin:0}
+.vi-stepper__stage .vi-frame{margin:0}
+.vi-bd{margin:.4em 0}
+.vi-cap{font-weight:700;color:#57606a;font-size:.82em;margin:.2em 0 .25em;text-transform:uppercase;letter-spacing:.04em}
+.vi-bd-intro{margin:1.2em 0 .6em;color:#57606a;font-size:.9em}
+.vi-structs{display:flex;flex-direction:column;gap:14px}
+.vi-struct{border:1px solid #d0d7de;border-radius:10px;background:#f6f8fa;padding:10px 12px}
+.vi-struct__title{display:flex;align-items:baseline;gap:10px;margin-bottom:.55em}
+.vi-struct__name{font-weight:700;color:#1f2328}
+.vi-struct__meta{color:#8b949e;font-size:.82em}
+.vi-struct .vi-fig{background:#fff}
+`;
+
+function enhanceSnapshot(doc) {
+  if (!doc || !doc.documentElement) return;
+  if (doc.documentElement.dataset.viEnhanced) return;   // each navigation loads a fresh doc
+  doc.documentElement.dataset.viEnhanced = '1';
+
+  // Only fully restyle/restructure genuine LabVIEW "Print to HTML" snapshots.
+  // Anything else (e.g. a VIDiff side-by-side report) just gets an image-fit rule
+  // so its images never overflow, leaving its own layout otherwise intact.
+  const isSnapshot = [...doc.querySelectorAll('meta')]
+    .some(m => /G Development Environment/i.test(m.getAttribute('content') || ''));
+
+  const style = doc.createElement('style');
+  style.textContent = isSnapshot ? ENHANCE_CSS : 'img{max-width:100%;height:auto}';
+  (doc.head || doc.documentElement).appendChild(style);
+
+  if (!isSnapshot) return;
+
+  const SINGLE = new Set(['connector pane', 'front panel', 'position in hierarchy']);
+  for (const h3 of [...doc.querySelectorAll('h3')]) {
+    const title  = (h3.textContent || '').trim().toLowerCase();
+    const frames = collectFrames(h3);
+    if (title === 'block diagram') {
+      if (frames.length > 1)        buildBlockDiagram(doc, h3, frames);
+      else if (frames.length === 1) frames[0].p.replaceWith(makeFigure(doc, frames[0].img));
+    } else if (SINGLE.has(title)) {
+      for (const fr of frames) fr.p.replaceWith(makeFigure(doc, fr.img));
+    }
+  }
+
+  // Arrow keys page through the active (or only) Block Diagram stepper.
+  doc.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const st = doc.__activeStepper || doc.querySelector('.vi-stepper');
+    if (!st || !st.__step) return;
+    st.__step(e.key === 'ArrowRight' ? 1 : -1);
+    e.preventDefault();
+  });
+}
+
+// Consecutive <P><IMG></P> siblings under a section heading, up to the next <HR>/<H3>.
+function collectFrames(h3) {
+  const out = [];
+  let n = h3.nextElementSibling;
+  while (n && n.tagName !== 'H3' && n.tagName !== 'HR') {
+    if (n.tagName === 'P') {
+      const img = n.querySelector('img');
+      if (img && n.children.length === 1) out.push({ p: n, img });
+    }
+    n = n.nextElementSibling;
+  }
+  return out;
+}
+
+// Wrap one diagram image in a zoom/pan figure with a small toolbar.
+function makeFigure(doc, img) {
+  const fig  = doc.createElement('div'); fig.className  = 'vi-fig';
+  const view = doc.createElement('div'); view.className = 'vi-fig__view';
+  img.classList.add('vi-img');
+  img.removeAttribute('width'); img.removeAttribute('height');
+  img.setAttribute('draggable', 'false');
+  view.appendChild(img);
+  const bar  = doc.createElement('div'); bar.className = 'vi-fig__bar';
+  const bOut = mkBtn(doc, '−', 'Zoom out');
+  const bFit = mkBtn(doc, 'Fit', 'Fit to width');
+  const bIn  = mkBtn(doc, '+', 'Zoom in');
+  bar.append(bOut, bFit, bIn);
+  fig.append(view, bar);
+  wireZoom(view, img, { bOut, bFit, bIn });
+  return fig;
+}
+
+function mkBtn(doc, label, title) {
+  const b = doc.createElement('button');
+  b.type = 'button'; b.textContent = label; b.title = title;
+  return b;
+}
+
+// Zoom by widening the image inside an overflow:auto viewport; pan = scroll.
+// At fit (zoom 1) the viewport grows to the image's height so the page scrolls
+// normally; once zoomed it becomes a bounded, pannable window.
+function wireZoom(view, img, btn) {
+  let zoom = 1, dragging = false, sx = 0, sy = 0, ssl = 0, sst = 0;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  function fitWidth() {
+    const prev = img.style.width; img.style.width = '';
+    const w = img.offsetWidth; img.style.width = prev; return w;
+  }
+  function setMode() {
+    if (zoom > 1) {
+      view.style.maxHeight = '78vh'; view.style.overflow = 'auto'; view.classList.add('zoomed');
+    } else {
+      view.style.maxHeight = 'none'; view.style.overflow = 'hidden'; view.classList.remove('zoomed');
+      view.scrollLeft = 0; view.scrollTop = 0;
+    }
+  }
+  function relabel() { btn.bFit.textContent = zoom > 1 ? Math.round(zoom * 100) + '%' : 'Fit'; }
+  function apply(nz, ax, ay) {
+    nz = clamp(nz, 1, 8);
+    const vr = view.getBoundingClientRect();
+    if (ax == null) { ax = vr.left + vr.width / 2; ay = vr.top + vr.height / 2; }
+    const preW = img.offsetWidth || 1, preH = img.offsetHeight || 1;
+    const fx = (view.scrollLeft + (ax - vr.left)) / preW;
+    const fy = (view.scrollTop  + (ay - vr.top))  / preH;
+    zoom = nz;
+    if (zoom <= 1) img.style.width = '';
+    else           img.style.width = (zoom * fitWidth()) + 'px';
+    setMode();
+    if (zoom > 1) {
+      const postW = img.offsetWidth, postH = img.offsetHeight;
+      view.scrollLeft = fx * postW - (ax - vr.left);
+      view.scrollTop  = fy * postH - (ay - vr.top);
+    }
+    relabel();
+  }
+  btn.bIn.addEventListener('click',  () => apply(zoom * 1.4));
+  btn.bOut.addEventListener('click', () => apply(zoom / 1.4));
+  btn.bFit.addEventListener('click', () => apply(1));
+  view.addEventListener('dblclick', e => apply(zoom > 1 ? 1 : 2.5, e.clientX, e.clientY));
+  view.addEventListener('wheel', e => {
+    if (!(e.ctrlKey || e.metaKey)) return;          // plain wheel still scrolls the page
+    e.preventDefault();
+    apply(zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY);
+  }, { passive: false });
+  view.addEventListener('pointerdown', e => {
+    if (zoom <= 1) return;
+    dragging = true; sx = e.clientX; sy = e.clientY; ssl = view.scrollLeft; sst = view.scrollTop;
+    view.classList.add('grabbing');
+    try { view.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  view.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    view.scrollLeft = ssl - (e.clientX - sx);
+    view.scrollTop  = sst - (e.clientY - sy);
+  });
+  const end = () => { dragging = false; view.classList.remove('grabbing'); };
+  view.addEventListener('pointerup', end);
+  view.addEventListener('pointercancel', end);
+  setMode(); relabel();
+}
+
+// Read a PNG's pixel size straight from its data-URI (IHDR width/height). LabVIEW
+// renders every case of one structure at that structure's fixed border size, so
+// equal sizes reliably identify cases that belong to the same structure — and the
+// snapshot HTML carries no other grouping/coordinate data to go on.
+function pngSize(img) {
+  const src = img.getAttribute('src') || '';
+  const k = src.indexOf('base64,');
+  if (k < 0) return null;
+  let b;
+  try { b = atob(src.slice(k + 7, k + 7 + 48)); } catch (_) { return null; }
+  if (b.length < 24 || b.charCodeAt(0) !== 0x89) return null;
+  const u32 = o => b.charCodeAt(o) * 16777216 + b.charCodeAt(o + 1) * 65536 +
+                   b.charCodeAt(o + 2) * 256 + b.charCodeAt(o + 3);
+  return u32(16) + 'x' + u32(20);   // IHDR: width x height
+}
+
+// A self-contained Prev/Next/slider stepper over a set of frames. Returns the
+// element; the caller places it. `unit` labels the counter ("Case" / "Frame").
+function makeStepper(doc, frames, unit) {
+  const N    = frames.length;
+  const wrap = doc.createElement('div'); wrap.className = 'vi-stepper';
+  const bar  = doc.createElement('div'); bar.className  = 'vi-stepper__bar';
+  const prev = doc.createElement('button'); prev.type = 'button'; prev.className = 'vi-step-btn'; prev.textContent = '◀ Prev';
+  const next = doc.createElement('button'); next.type = 'button'; next.className = 'vi-step-btn'; next.textContent = 'Next ▶';
+  const label = doc.createElement('span'); label.className = 'vi-step-label';
+  const hint  = doc.createElement('span'); hint.className  = 'vi-step-hint'; hint.textContent = (unit || 'Frame') + 's';
+  let slider = null;
+  if (N > 2) {
+    slider = doc.createElement('input');
+    slider.type = 'range'; slider.min = '1'; slider.max = String(N); slider.value = '1';
+    slider.className = 'vi-step-range'; slider.title = 'Scroll through ' + (unit || 'frame').toLowerCase() + 's';
+  }
+  const stage = doc.createElement('div'); stage.className = 'vi-stepper__stage';
+  const figs = frames.map(fr => {
+    const f = makeFigure(doc, fr.img); f.classList.add('vi-frame');
+    stage.appendChild(f); return f;
+  });
+  let idx = 0;
+  function show(i) {
+    idx = Math.max(0, Math.min(N - 1, i));
+    figs.forEach((f, k) => { f.style.display = k === idx ? 'block' : 'none'; });
+    label.textContent = `${unit || 'Frame'} ${idx + 1} / ${N}`;
+    if (slider) slider.value = String(idx + 1);
+    prev.disabled = idx === 0; next.disabled = idx === N - 1;
+  }
+  prev.addEventListener('click', () => show(idx - 1));
+  next.addEventListener('click', () => show(idx + 1));
+  if (slider) slider.addEventListener('input', () => show(parseInt(slider.value, 10) - 1));
+  wrap.addEventListener('pointerdown', () => { doc.__activeStepper = wrap; });
+  wrap.__step = d => show(idx + d);
+  bar.append(prev, label, next);
+  if (slider) bar.append(slider);
+  bar.append(hint);
+  wrap.append(bar, stage);
+  doc.__activeStepper = doc.__activeStepper || wrap;
+  show(0);
+  return wrap;
+}
+
+// Lay out a multi-image Block Diagram the way a user reads a VI: the top-level
+// diagram stays pinned and visible, and every Case/Event/Sequence structure's
+// extra cases get their own scrollable window (grouped by rendered size, since
+// that's the only signal the snapshot exposes — see pngSize). This replaces the
+// single flat stepper that forced a choice between the diagram and the cases.
+function buildBlockDiagram(doc, h3, frames) {
+  const container = doc.createElement('div'); container.className = 'vi-bd';
+
+  // First emitted image == the whole top-level diagram. Always shown, zoomable.
+  const topCap = doc.createElement('div'); topCap.className = 'vi-cap'; topCap.textContent = 'Top-level diagram';
+  const topFig = makeFigure(doc, frames[0].img); topFig.classList.add('vi-bd-top');
+  container.append(topCap, topFig);
+
+  // Remaining images are additional structure cases. Group by exact pixel size:
+  // all cases of one structure share its fixed border size, so equal sizes group
+  // together even when LabVIEW interleaves nested structures between them.
+  const rest = frames.slice(1);
+  if (rest.length) {
+    const groups = [];
+    const byKey  = new Map();
+    rest.forEach((fr, i) => {
+      const key = pngSize(fr.img) || ('u' + i);   // unknown size -> its own group
+      let g = byKey.get(key);
+      if (!g) { g = []; byKey.set(key, g); groups.push(g); }
+      g.push(fr);
+    });
+
+    const intro = doc.createElement('div'); intro.className = 'vi-bd-intro';
+    intro.textContent = groups.length === 1
+      ? 'One case / event structure — scroll its cases in the window below.'
+      : `${groups.length} case / event structures — scroll each one's cases in its window below.`;
+    container.appendChild(intro);
+
+    const structs = doc.createElement('div'); structs.className = 'vi-structs';
+    groups.forEach((g, i) => {
+      const panel = doc.createElement('div'); panel.className = 'vi-struct';
+      const title = doc.createElement('div'); title.className = 'vi-struct__title';
+      const name  = doc.createElement('span'); name.className = 'vi-struct__name'; name.textContent = `Structure ${i + 1}`;
+      const meta  = doc.createElement('span'); meta.className = 'vi-struct__meta';
+      meta.textContent = g.length === 1 ? '1 case' : `${g.length} cases`;
+      title.append(name, meta);
+      panel.appendChild(title);
+      if (g.length > 1) {
+        panel.appendChild(makeStepper(doc, g, 'Case'));
+      } else {
+        const f = makeFigure(doc, g[0].img); f.classList.add('vi-frame');
+        panel.appendChild(f);
+      }
+      structs.appendChild(panel);
+    });
+    container.appendChild(structs);
+  }
+
+  frames.forEach(fr => fr.p.remove());
+  h3.after(container);
+}
+
+// Configure the toolbar "View diff report" link. Shown only when a true side-by-side
+// VIDiff report exists for this VI (on the selected or the other platform).
+function setDiffLink(viRel) {
+  const chg = changeMap[viRel];
+  const diffLink = document.getElementById('diff-link');
+  const rep = diffReportFor(viRel);
+  if (chg && rep) {
+    diffLink.textContent = 'View diff report \u2192';
+    diffLink.href = rep.url;
+    diffLink.onclick = (e) => { e.preventDefault(); openDiff(viRel, chg.type, currentDiffRow); };
+    diffLink.style.display = 'inline';
+  } else {
+    diffLink.style.display = 'none';
+  }
+}
+
+// Show the Linux/Windows switch when this VI has a diff report and the commit
+// published reports on both containers; disable a button if its platform lacks
+// this particular VI's report. Lets the user compare container output side by side.
+function setPlatformToggle(viRel) {
+  const wrap = document.getElementById('plat-toggle');
+  const chg = changeMap[viRel];
+  const haveBoth = commitPlatforms.has('linux') && commitPlatforms.has('windows');
+  if (!chg || !chg.reports || !haveBoth) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'inline-flex';
+  const shown = diffReportFor(viRel);
+  for (const btn of wrap.querySelectorAll('button')) {
+    const p = btn.dataset.plat;
+    btn.disabled = !chg.reports[p];
+    btn.classList.toggle('active', !!shown && p === shown.platform);
+  }
+}
+
+function openVI(row) {
+  setActiveRow(row);
+  currentDiffRow = row;
+  currentDiffVi = null;
+  activeHtml = row.dataset.html;
+  // Snapshots are content-addressed and shared across commits, so the manifest's
+  // `html` is relative to the vi-snapshots base (e.g. "by-blob/ab/<blob>.html").
+  setDiffLink(row.dataset.name);
+  document.getElementById('plat-toggle').style.display = 'none';
+  currentSnapshot = { html: `${BASE}${row.dataset.html}`, title: row.dataset.name };
+  openSnapshot(currentSnapshot.html, currentSnapshot.title);
+}
+
+// Open a changed VI's side-by-side diff report (from the selected container), or
+// its snapshot when no diff report exists. Wires the toolbar link + platform switch.
+function openDiff(viRel, type, row) {
+  setActiveRow(row || null);
+  currentDiffRow = row || null;
+  currentDiffVi = viRel;
+  activeHtml = row ? row.dataset.html : null;
+  setViewerModeNote('');
+  setDiffLink(viRel);
+  setPlatformToggle(viRel);
+  const rep = diffReportFor(viRel);
+  if (rep) {
+    showInFrame(rep.url, `${viRel} \u2014 ${type === 'modified' ? 'diff' : type} \u00b7 ${rep.platform}`);
+  } else {
+    const chg = changeMap[viRel];
+    showInFrame(chg ? chg.url : `${BASE}`, `${viRel} \u2014 ${type}`);
+  }
+}
+
+document.getElementById('search').addEventListener('input', e => renderList(e.target.value));
+document.getElementById('changed-only').addEventListener('change', e => {
+  changedOnly = e.target.checked;
+  renderList(document.getElementById('search').value);
+});
+document.getElementById('expand-all').addEventListener('click', () => {
+  if (treeRoot) allFolderPaths(treeRoot).forEach(p => expanded.add(p));
+  renderList(document.getElementById('search').value);
+});
+document.getElementById('collapse-all').addEventListener('click', () => {
+  expanded.clear();
+  renderList(document.getElementById('search').value);
+});
+// Linux/Windows diff switch: change the selected container and reload the open diff.
+document.querySelectorAll('#plat-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.disabled || btn.dataset.plat === diffPlatform) return;
+    diffPlatform = btn.dataset.plat;
+    try {
+      const u = new URL(location.href);
+      u.searchParams.set('plat', diffPlatform);
+      history.replaceState(null, '', u);
+    } catch (e) { /* non-fatal */ }
+    if (currentDiffVi) openDiff(currentDiffVi, (changeMap[currentDiffVi] || {}).type || 'modified', currentDiffRow);
+  });
+});
+
+// 1.0 / 2.0 VI Browser switch: reflect the active mode, persist it (?viewer=), and
+// re-render the open VI in the chosen mode. A diff report is mode-independent, so
+// switching while a diff is shown only updates the preference for the next VI.
+function setViewerModeNote(msg) {
+  const note = document.getElementById('viewer-mode-note');
+  if (!note) return;
+  note.textContent = msg || '';
+  note.classList.toggle('show', !!msg);
+}
+function syncViewerToggle() {
+  document.querySelectorAll('#viewer-toggle button').forEach(b => {
+    b.classList.toggle('active', b.dataset.viewer === viewerMode);
+  });
+}
+document.querySelectorAll('#viewer-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.dataset.viewer === viewerMode) return;
+    viewerMode = btn.dataset.viewer;
+    syncViewerToggle();
+    try {
+      const u = new URL(location.href);
+      u.searchParams.set('viewer', viewerMode);
+      history.replaceState(null, '', u);
+    } catch (e) { /* non-fatal */ }
+    // Re-render a plain snapshot in the new mode; a diff report is unaffected.
+    if (currentSnapshot && !currentDiffVi) openSnapshot(currentSnapshot.html, currentSnapshot.title);
+    else setViewerModeNote('');
+  });
+});
+syncViewerToggle();
+
+loadCommits().catch(err => {
+  document.getElementById('vi-list').innerHTML =
+    `<div style="padding:16px;color:var(--error);font-size:.8em">Error loading gallery:<br>${err.message}</div>`;
+});
+</script>
+<script>
+/* VI Browser 2.0 setup wizard (render-token lock screen). Self-contained.
+   Turns the gate into an in-place flow: create a read:packages token, paste it to
+   seal + save the TOIMAGES_REGISTRY_TOKEN secret, then dispatch the JSON render
+   workflow. Reuses the install token (Secrets: write) and dispatch token
+   (Actions: write) the integrate/dashboard pages keep in this origin's
+   localStorage. A browser cannot test a GHCR pull (no CORS), so the real proof is
+   the dispatched workflow run. */
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var INSTALL_KEY = "lvci_install_token", DISPATCH_KEY = "lvci_dispatch_token";
+  var SECRET = "TOIMAGES_REGISTRY_TOKEN", IMG_VAR = "TOIMAGES_IMAGE";
+  var DEFAULT_IMAGE = "ghcr.io/elijah286/lvci-toimages:latest"; // only used if unset
+  var JSON_WF = "vi-snapshots-json.yml";
+  var integrateHref = "../integrate.html#toimgSection";
+
+  function detectRepo() {
+    var m = String(location.hostname).match(/^([^.]+)\.github\.io$/i);
+    var seg = location.pathname.split("/").filter(Boolean);
+    return (m && seg.length) ? (m[1] + "/" + seg[0]) : "";
+  }
+  var repo = detectRepo();
+  var lsGet = function (k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); }
+  function setStatus(el, html, kind) { if (!el) return; el.innerHTML = html || ""; el.style.color = kind === "ok" ? "#2da44e" : (kind === "err" ? "#cf222e" : "var(--fg-muted)"); }
+
+  var FETCH_TIMEOUT_MS = 20000;
+  function gh(path, token, opts) {
+    opts = opts || {};
+    var h = { "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
+    if (token) h["Authorization"] = "Bearer " + token;
+    var body = opts.body;
+    if (body && typeof body !== "string") { body = JSON.stringify(body); h["Content-Type"] = "application/json"; }
+    // Abort a stalled request so the connect flow can't hang forever on a network
+    // that never answers; surface it as a clear, retryable error instead.
+    var ctl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+    var timer = ctl ? setTimeout(function () { ctl.abort(); }, FETCH_TIMEOUT_MS) : null;
+    return fetch("https://api.github.com" + path, { method: opts.method || "GET", headers: h, body: body, cache: "no-store", signal: ctl ? ctl.signal : undefined })
+      .then(function (r) { if (timer) clearTimeout(timer); return r; }, function (e) {
+        if (timer) clearTimeout(timer);
+        if (ctl && e && e.name === "AbortError") { var t = new Error("The request to GitHub timed out \u2014 check your connection and try again."); t.status = 0; throw t; }
+        throw e;
+      });
+  }
+  function ghJson(r) {
+    if (r.ok) return r.status === 204 ? null : r.json();
+    return r.json().catch(function () { return {}; }).then(function (j) { var e = new Error(j.message || ("HTTP " + r.status)); e.status = r.status; throw e; });
+  }
+
+  // The render token is sealed in-browser with the repo public key (GitHub requires
+  // a libsodium crypto_box_seal). tweetnacl + sealedbox load from a CDN on first use,
+  // pinned by SRI. A single blocked CDN used to leave connect hanging at "Sealing
+  // and saving...", so each load now has a timeout AND an integrity-pinned fallback
+  // CDN (jsDelivr then unpkg serve the byte-identical npm file, so the same SRI hash
+  // applies to both).
+  var SCRIPT_TIMEOUT_MS = 12000;
+  var sealReady = null;
+  function addScript(src, integ) {
+    return new Promise(function (res, rej) {
+      var s = document.createElement("script"); s.src = src; if (integ) s.integrity = integ; s.crossOrigin = "anonymous";
+      var settled = false;
+      var timer = setTimeout(function () { if (settled) return; settled = true; s.onload = s.onerror = null; rej(new Error("timeout")); }, SCRIPT_TIMEOUT_MS);
+      s.onload = function () { if (settled) return; settled = true; clearTimeout(timer); res(); };
+      s.onerror = function () { if (settled) return; settled = true; clearTimeout(timer); rej(new Error("error")); };
+      document.head.appendChild(s);
+    });
+  }
+  function loadCdn(pkgPath, integ) {
+    return addScript("https://cdn.jsdelivr.net/npm/" + pkgPath, integ)
+      .catch(function () { return addScript("https://unpkg.com/" + pkgPath, integ); });
+  }
+  function loadSealedBox() {
+    if (sealReady) return sealReady;
+    if (window.nacl && window.sealedBox) { sealReady = Promise.resolve(window.sealedBox); return sealReady; }
+    sealReady = loadCdn("tweetnacl@1.0.3/nacl-fast.min.js", "sha384-05+sicyRJQ56XpL4U9HJ8YbtSzFDvAg7apPKOGV6A0JsAJKFM68jp5oLnUjG5mEp")
+      .then(function () { return loadCdn("tweetnacl-sealedbox-js@1.2.0/sealedbox.web.js", "sha384-gCr/Ers2SYUTIvvm+iWV5lakrZ/tTqxgYQckm0Znr3blQzNfOPirDZlpvkINLyhv"); })
+      .then(function () { if (!window.nacl || !window.sealedBox) throw new Error("Encryption library unavailable."); return window.sealedBox; })
+      .catch(function () { sealReady = null; throw new Error("Couldn't load the in-browser encryption library (network blocked?). Check your connection and click Connect again."); });
+    return sealReady;
+  }
+  function b64ToBytes(b) { var s = atob(b), u = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
+  function bytesToB64(u) { var s = ""; for (var i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s); }
+  function sealForRepo(v, pk) { return loadSealedBox().then(function (sb) { return bytesToB64(sb.seal(new TextEncoder().encode(v), b64ToBytes(pk))); }); }
+
+  function tokenCreateUrl() { return "https://github.com/settings/tokens/new?scopes=read:packages&description=" + encodeURIComponent("LabVIEW CI render token (GHCR pull for VI Browser 2.0)"); }
+
+  var pendingSave = null;
+  function needToken(key, msgHtml, retryFn) {
+    var p = $("nt-tokp"); if (!p) return;
+    var m = $("nt-tokp-msg"); if (m) m.innerHTML = msgHtml;
+    p.style.display = "";
+    pendingSave = { key: key, retry: retryFn };
+    var i = $("nt-tokp-input"); if (i) { i.value = ""; i.focus(); }
+  }
+
+  function connect() {
+    var st = $("nt-status"), token = ($("nt-token").value || "").trim();
+    if (!token) { $("nt-token").focus(); return; }
+    if (!repo) { setStatus(st, "Couldn't detect this repository from the URL. Finish setup on the <a href='" + integrateHref + "'>Integrate page</a>.", "err"); return; }
+    var ins = lsGet(INSTALL_KEY);
+    if (!ins) {
+      var su = "https://github.com/settings/personal-access-tokens/new?name=" + encodeURIComponent("LabVIEW CI setup") + "&description=" + encodeURIComponent("Save the VI Browser 2.0 render token for " + repo) + "&target_name=" + encodeURIComponent(repo.split("/")[0]) + "&secrets=write&variables=write";
+      needToken(INSTALL_KEY, "Saving the secret needs a one-time <strong>setup token</strong> with <strong>Secrets &amp; Variables: write</strong> on <code>" + esc(repo) + "</code>. <a href='" + su + "' target='_blank' rel='noopener' style='color:var(--link)'>Create one \u2197</a>, paste it below, and Save.", connect);
+      setStatus(st, "Render token captured \u2014 paste the one-time setup token below, then Save to finish.", null); return;
+    }
+    var btn = $("nt-connect"); btn.disabled = true;
+    setStatus(st, "Reading this repository\u2019s key\u2026", null);
+    gh("/repos/" + repo + "/actions/secrets/public-key", ins).then(ghJson)
+      .then(function (pk) {
+        setStatus(st, "Loading the encryption library\u2026", null);
+        return sealForRepo(token, pk.key).then(function (enc) {
+          setStatus(st, "Saving the render token\u2026", null);
+          return gh("/repos/" + repo + "/actions/secrets/" + SECRET, ins, { method: "PUT", body: { encrypted_value: enc, key_id: pk.key_id } }).then(ghJson);
+        });
+      })
+      .then(function () {
+        setStatus(st, "Checking the render image\u2026", null);
+        return gh("/repos/" + repo + "/actions/variables/" + IMG_VAR, ins).then(ghJson).catch(function (e) { if (e.status === 404) return null; throw e; })
+          .then(function (v) { if (v && v.value) return v.value;
+            return gh("/repos/" + repo + "/actions/variables", ins, { method: "POST", body: { name: IMG_VAR, value: DEFAULT_IMAGE } }).then(ghJson).then(function () { return DEFAULT_IMAGE; }); });
+      })
+      .then(function (img) {
+        $("nt-token").value = "";
+        showConnected(img);
+      })
+      .catch(function (e) {
+        var s = e && e.status;
+        setStatus(st, s === 401 ? "Setup token rejected (401) \u2014 re-create it on the Integrate page."
+          : s === 403 ? "Setup token lacks <strong>Secrets: write</strong> on this repo."
+          : s === 404 ? "Setup token can't see <code>" + esc(repo) + "</code>."
+          : "Couldn't save the token: " + esc(e && e.message || String(e)), "err");
+      })
+      .then(function () { btn.disabled = false; });
+  }
+
+  // Replace the lock dialog with a "Connected" confirmation that surfaces the render
+  // image and the one-click button to run the snapshot action that populates 2.0.
+  function showConnected(img) {
+    var d = $("nt-conn-detail");
+    if (d) d.innerHTML = "Render image <code>" + esc(img) + "</code> \u2014 <a href='" + integrateHref + "' style='color:var(--link)'>change</a>. Run the snapshot action below to populate VI Browser 2.0 with imagery.";
+    var lock = $("nt-lock"); if (lock) lock.style.display = "none";
+    var tokp = $("nt-tokp"); if (tokp) tokp.style.display = "none";
+    var ok = $("nt-success"); if (ok) ok.style.display = "";
+  }
+
+  function generate() {
+    var st = $("nt-gen-status"), dt = lsGet(DISPATCH_KEY);
+    if (!dt) {
+      var du = "https://github.com/settings/personal-access-tokens/new?name=" + encodeURIComponent("LabVIEW CI dispatch") + "&description=" + encodeURIComponent("Dispatch CI runs for " + repo) + "&target_name=" + encodeURIComponent(repo.split("/")[0]) + "&actions=write";
+      needToken(DISPATCH_KEY, "Running the snapshot needs a token with <strong>Actions: write</strong> on <code>" + esc(repo) + "</code>. <a href='" + du + "' target='_blank' rel='noopener' style='color:var(--link)'>Create one \u2197</a>, paste it below, and Save.", generate);
+      setStatus(st, "", null); return;
+    }
+    var btn = $("nt-generate"); btn.disabled = true;
+    setStatus(st, "Queuing the 2.0 snapshot run\u2026", null);
+    gh("/repos/" + repo + "/actions/workflows/" + encodeURIComponent(JSON_WF) + "/dispatches", dt, { method: "POST", body: { ref: "main", inputs: { mode: "head" } } })
+      .then(function (r) {
+        btn.disabled = false;
+        if (r.status === 204) { setStatus(st, "\u2713 Queued. When the run finishes, reload and the VI opens in 2.0. <a href='https://github.com/" + esc(repo) + "/actions/workflows/" + JSON_WF + "' target='_blank' rel='noopener'>View run \u2197</a>", "ok"); return; }
+        setStatus(st, r.status === 401 ? "Dispatch token rejected (401)." : r.status === 403 ? "Dispatch token lacks Actions: write on this repo." : r.status === 404 ? "Token can't see <code>" + esc(repo) + "</code>, or the workflow isn't on the default branch." : "Dispatch failed (HTTP " + r.status + ").", "err");
+      })
+      .catch(function (e) { btn.disabled = false; setStatus(st, "Network error: " + esc(e && e.message || String(e)), "err"); });
+  }
+
+  function init() {
+    var link = $("needtoken-link"); if (link) link.href = tokenCreateUrl();
+    var rr = $("nt-repo-row"); if (rr) rr.innerHTML = repo ? ("Repository: <code>" + esc(repo) + "</code>") : "Repository <em>not detected</em> \u2014 use the Integrate page.";
+    var c = $("nt-connect"); if (c) c.addEventListener("click", connect);
+    var t = $("nt-token"); if (t) t.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); connect(); } });
+    var g = $("nt-generate"); if (g) g.addEventListener("click", generate);
+    function saveTok() {
+      if (!pendingSave) return;
+      var v = ($("nt-tokp-input").value || "").trim();
+      if (!v) { $("nt-tokp-input").focus(); return; }
+      try { localStorage.setItem(pendingSave.key, v); } catch (e) {}
+      $("nt-tokp-input").value = ""; $("nt-tokp").style.display = "none";
+      var r = pendingSave.retry; pendingSave = null; if (r) r();
+    }
+    var ps = $("nt-tokp-save"); if (ps) ps.addEventListener("click", saveTok);
+    var pi = $("nt-tokp-input"); if (pi) pi.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); saveTok(); } });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
+})();
+</script>
+</body>
+</html>

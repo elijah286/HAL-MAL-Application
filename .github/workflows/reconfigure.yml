@@ -1,0 +1,299 @@
+name: Reconfigure LabVIEW CI
+
+# Applies a settings change from the Configure tool (or a manual dispatch) by
+# rewriting .github/labview-ci.yml + toggling container dependencies, then opening
+# a pull request. Nothing is applied until you review and merge the PR — and it
+# uses GitHub's own auth, so no tokens ever touch the browser.
+
+on:
+  workflow_dispatch:
+    inputs:
+      labview_version:
+        description: 'LabVIEW year (e.g. 2026)'
+        required: false
+        default: '2026'
+      operating_systems:
+        description: 'Which platforms the pipeline targets'
+        type: choice
+        options: [both, windows, linux]
+        default: both
+      antidoc:
+        description: 'Bake Antidoc (Wovalab doc generation) into the worker image'
+        type: boolean
+        default: true
+      concurrent_runners:
+        description: 'Per-repo cap on parallel CI jobs. GitHub limits concurrency per ACCOUNT (Free 20, Pro 40, Team 60, Enterprise 500) shared across all your repos, so keep it modest. Default 5.'
+        required: false
+        default: '5'
+      activities:
+        description: 'Comma-separated capability ids (blank = keep current)'
+        required: false
+        default: ''
+      container_use:
+        description: 'Container image tag CI activities use (e.g. latest, win-<hash>, 2026; blank = keep current)'
+        required: false
+        default: ''
+      container_vipc:
+        description: 'Baked VIPC files as path::monitor pairs separated by ; (blank = keep current)'
+        required: false
+        default: ''
+      container_actions:
+        description: 'Per-action container overrides as id::tag pairs separated by ; (e.g. masscompile::latest;vidiff::base; blank = keep current)'
+        required: false
+        default: ''
+      action_triggers:
+        description: 'Per-activity submission triggers as id::sources pairs separated by ; (sources joined by +, e.g. snapshots::push-default+pr-branch; use "none" to disable an activity; blank = keep current)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: labview-ci-reconfigure
+  cancel-in-progress: false
+
+jobs:
+  reconfigure:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Apply settings to config files
+        env:
+          IN_VERSION: ${{ inputs.labview_version }}
+          IN_OS: ${{ inputs.operating_systems }}
+          IN_ANTIDOC: ${{ inputs.antidoc }}
+          IN_RUNNERS: ${{ inputs.concurrent_runners }}
+          IN_ACTS: ${{ inputs.activities }}
+          IN_CONTAINER_USE: ${{ inputs.container_use }}
+          IN_CONTAINER_VIPC: ${{ inputs.container_vipc }}
+          IN_CONTAINER_ACTIONS: ${{ inputs.container_actions }}
+          IN_ACTION_TRIGGERS: ${{ inputs.action_triggers }}
+        run: |
+          python3 - <<'PY'
+          import os, re, json, datetime, pathlib
+
+          ver     = os.environ['IN_VERSION'].strip() or '2026'
+          oss     = os.environ['IN_OS'].strip() or 'both'
+          antidoc = os.environ['IN_ANTIDOC'].strip().lower() == 'true'
+          runners = os.environ['IN_RUNNERS'].strip()
+          acts_in = os.environ['IN_ACTS'].strip()
+          container_use_in = os.environ.get('IN_CONTAINER_USE', '').strip()
+          container_vipc_in = os.environ.get('IN_CONTAINER_VIPC', '').strip()
+          container_actions_in = os.environ.get('IN_CONTAINER_ACTIONS', '').strip()
+          action_triggers_in = os.environ.get('IN_ACTION_TRIGGERS', '').strip()
+
+          # Preserve provenance fields from any existing manifest.
+          mpath = pathlib.Path('.github/labview-ci.yml')
+          prev = {'activities': [], 'installedVersion': '', 'repo': '', 'ref': 'main',
+                  'container_use': '', 'vipc': [], 'actions': {}, 'triggers': {}, 'unitTests_block': []}
+          if mpath.exists():
+              in_acts = False; in_container = False; in_vipc = False; in_actions = False; in_triggers = False; in_ut = False; cur_vipc = None
+              for line in mpath.read_text(encoding='utf-8').splitlines():
+                  if re.match(r'^\s*activities:\s*$', line):
+                      in_acts = True; in_container = False; in_vipc = False; in_actions = False; in_triggers = False; continue
+                  if re.match(r'^\s*container:\s*$', line):
+                      in_container = True; in_acts = False; in_vipc = False; in_actions = False; in_triggers = False; continue
+                  if re.match(r'^\s*triggers:\s*$', line):
+                      in_triggers = True; in_acts = False; in_container = False; in_vipc = False; in_actions = False; continue
+                  if re.match(r'^unitTests:\s*$', line):
+                      in_ut = True; in_acts = False; in_container = False; in_vipc = False; in_actions = False; in_triggers = False
+                      prev['unitTests_block'] = [line]; continue
+                  if in_ut:
+                      if re.match(r'^\s+\S', line):
+                          prev['unitTests_block'].append(line); continue
+                      in_ut = False
+                  if in_acts:
+                      m = re.match(r'^\s*-\s*(\S+)', line)
+                      if m: prev['activities'].append(m.group(1)); continue
+                      in_acts = False
+                  if in_triggers:
+                      m = re.match(r'^\s{4}([A-Za-z0-9_.\-]+):\s*(\S+)', line)
+                      if m: prev['triggers'][m.group(1)] = m.group(2); continue
+                      if re.match(r'^\s{0,3}\S', line): in_triggers = False
+                  if in_container:
+                      m = re.match(r'^\s{4}use:\s*"?([^"\s]+)"?', line)
+                      if m: prev['container_use'] = m.group(1); in_vipc = False; in_actions = False; continue
+                      if re.match(r'^\s{4}vipc:\s*$', line): in_vipc = True; in_actions = False; continue
+                      if re.match(r'^\s{4}actions:\s*$', line): in_actions = True; in_vipc = False; continue
+                      if in_vipc:
+                          m = re.match(r'^\s{6}-\s*path:\s*"?([^"]+?)"?\s*$', line)
+                          if m: cur_vipc = {'path': m.group(1).strip(), 'monitor': True}; prev['vipc'].append(cur_vipc); continue
+                          m = re.match(r'^\s{8}monitor:\s*(\S+)', line)
+                          if m and cur_vipc is not None: cur_vipc['monitor'] = (m.group(1).strip().lower() == 'true'); continue
+                      if in_actions:
+                          m = re.match(r'^\s{6}([A-Za-z0-9_.\-]+):\s*"?([^"\s]+)"?\s*$', line)
+                          if m: prev['actions'][m.group(1)] = m.group(2); continue
+                      if re.match(r'^\s{0,3}\S', line): in_container = False; in_vipc = False; in_actions = False
+                  m = re.match(r'^\s*installedVersion:\s*(\S+)', line)
+                  if m: prev['installedVersion'] = m.group(1)
+                  m = re.match(r'^\s*repo:\s*(\S+)', line)
+                  if m and not prev['repo']: prev['repo'] = m.group(1)
+                  m = re.match(r'^\s*ref:\s*(\S+)', line)
+                  if m and prev['ref'] == 'main': prev['ref'] = m.group(1)
+
+          os_list = ['windows', 'linux'] if oss == 'both' else [oss]
+          acts = [a.strip() for a in acts_in.split(',') if a.strip()] \
+              or prev['activities'] or ['dashboard', 'masscompile', 'vi-analyzer', 'vidiff']
+          now = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+          max_parallel = int(runners) if runners.isdigit() and int(runners) > 0 else 1
+
+          # Container: explicit input wins; blank keeps whatever the manifest had.
+          container_use = container_use_in or prev['container_use'] or 'latest'
+          def _parse_vipc(s):
+              out = []
+              for entry in s.split(';'):
+                  entry = entry.strip()
+                  if not entry: continue
+                  if '::' in entry:
+                      path, mon = entry.rsplit('::', 1)
+                      out.append({'path': path.strip(), 'monitor': mon.strip().lower() not in ('0', 'false', 'no', 'off')})
+                  else:
+                      out.append({'path': entry, 'monitor': True})
+              return out
+          vipc = _parse_vipc(container_vipc_in) if container_vipc_in else prev['vipc']
+
+          # Per-action container overrides: explicit input wins; blank keeps the
+          # manifest's. Each entry is "<activity-id>::<tag>" (tag = latest, a pinned
+          # build, "base" for the bare NI image, or any custom tag).
+          def _parse_actions(s):
+              out = {}
+              for entry in s.split(';'):
+                  entry = entry.strip()
+                  if not entry or '::' not in entry: continue
+                  k, v = entry.split('::', 1)
+                  k = k.strip(); v = v.strip()
+                  if k and v: out[k] = v
+              return out
+          container_actions = _parse_actions(container_actions_in) if container_actions_in else prev['actions']
+
+          # Per-activity submission triggers: explicit input wins; blank keeps the
+          # manifest's. Each entry is "<activity-id>::<sources>" where sources are
+          # joined by + (push-default, pr-branch, pr-fork) or the literal "none".
+          def _parse_triggers(s):
+              out = {}
+              for entry in s.split(';'):
+                  entry = entry.strip()
+                  if not entry or '::' not in entry: continue
+                  k, v = entry.split('::', 1)
+                  k = k.strip(); v = v.strip()
+                  if k and v: out[k] = v
+              return out
+          triggers = _parse_triggers(action_triggers_in) if action_triggers_in else prev['triggers']
+
+          lines = [
+              '# .github/labview-ci.yml - LabVIEW CI configuration',
+              '# Updated by the Reconfigure workflow.',
+              'schemaVersion: 1',
+          ]
+          if prev['installedVersion']:
+              lines.append(f"installedVersion: {prev['installedVersion']}")
+          lines.append(f"configuredAt: {now}")
+          if prev['repo']:
+              lines += ['source:', f"  repo: {prev['repo']}", f"  ref: {prev['ref']}"]
+          lines += [
+              'config:',
+              f'  labviewVersion: "{ver}"',
+              f'  os: [{", ".join(os_list)}]',
+              '  concurrency:',
+              f'    maxParallel: {max_parallel}',
+          ]
+          lines += ['  container:', f'    use: {container_use}']
+          if vipc:
+              lines.append('    vipc:')
+              for v in vipc:
+                  p = str(v['path']).replace('"', '')
+                  lines.append(f'      - path: "{p}"')
+                  lines.append(f"        monitor: {'true' if v['monitor'] else 'false'}")
+          if container_actions:
+              lines.append('    actions:')
+              for _id in sorted(container_actions):
+                  lines.append(f'      {_id}: {container_actions[_id]}')
+          if triggers:
+              lines.append('  triggers:')
+              for _id in sorted(triggers):
+                  lines.append(f'    {_id}: {triggers[_id]}')
+          lines += ['activities:'] + [f'  - {a}' for a in acts] + ['']
+          # Preserve the unit-test tool config (written by the Unit Testing page);
+          # reconfigure manages activities/container only, so keep it verbatim.
+          if prev.get('unitTests_block'):
+              lines += prev['unitTests_block'] + ['']
+          mpath.parent.mkdir(parents=True, exist_ok=True)
+          mpath.write_text('\n'.join(lines), encoding='utf-8')
+          print('Wrote', mpath)
+
+          # Toggle Antidoc (a VIPM package) in the container dependency manifest.
+          ppath = pathlib.Path('.github/labview/vipm/ci-tooling.packages.json')
+          if ppath.exists():
+              obj = json.loads(ppath.read_text(encoding='utf-8'))
+              for p in obj.get('vipmPackages', {}).get('packages', []):
+                  if p.get('name') == 'wovalab_lib_antidoc_cli':
+                      p['include'] = bool(antidoc)
+              ppath.write_text(json.dumps(obj, indent=2) + '\n', encoding='utf-8')
+              print('Antidoc include ->', antidoc)
+          PY
+
+      - name: Regenerate container VIPC (best effort)
+        continue-on-error: true
+        run: |
+          GEN=.github/labview/vipm/build-tooling-vipc.py
+          PKG=.github/labview/vipm/ci-tooling.packages.json
+          OUT=.github/labview/vipm/ci-tooling.vipc
+          if [ -f "$GEN" ] && [ -f "$PKG" ]; then
+            python3 "$GEN" --manifest "$PKG" --out "$OUT" --labview-version "${{ inputs.labview_version }}"
+          else
+            echo "VIPC generator or manifest not present; skipping regeneration."
+          fi
+
+      - name: Open pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          BRANCH="labview-ci/reconfigure-${{ github.run_id }}"
+          git checkout -b "$BRANCH"
+
+          git add .github/labview-ci.yml
+          [ -f .github/labview/vipm/ci-tooling.packages.json ] && git add .github/labview/vipm/ci-tooling.packages.json || true
+          [ -f .github/labview/vipm/ci-tooling.vipc ] && git add .github/labview/vipm/ci-tooling.vipc || true
+
+          if git diff --cached --quiet; then
+            echo "No changes — current settings already match. No PR opened."
+            exit 0
+          fi
+
+          git commit -m "ci: reconfigure LabVIEW CI settings"
+          git push -u origin "$BRANCH"
+
+          gh pr create \
+            --title "Reconfigure LabVIEW CI" \
+            --base "${{ github.ref_name }}" \
+            --head "$BRANCH" \
+            --body "$(cat <<'BODY'
+          Automated settings change via the **Reconfigure** workflow.
+
+          | Setting | Value |
+          |---|---|
+          | LabVIEW version | ${{ inputs.labview_version }} |
+          | Operating systems | ${{ inputs.operating_systems }} |
+          | Antidoc | ${{ inputs.antidoc }} |
+          | Max concurrent runners | ${{ inputs.concurrent_runners }} |
+          | Activities | ${{ inputs.activities }} |
+          | Container | ${{ inputs.container_use }} |
+          | Per-action containers | ${{ inputs.container_actions }} |
+          | Activity triggers | ${{ inputs.action_triggers }} |
+
+          Review and merge to apply. Container-dependency and LabVIEW-version changes
+          take effect on the next image build; OS/runner settings apply where the
+          workflows are wired to read `labview-ci.yml`.
+          BODY
+          )"
