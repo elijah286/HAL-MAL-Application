@@ -1,11 +1,420 @@
 {
   "schemaVersion": 1,
-  "version": "3.4.25",
+  "version": "3.10.0",
   "name": "LabVIEW CI",
   "description": "Portable, repo-agnostic CI/CD capabilities for LabVIEW repositories: mass compile, VI Analyzer, VIDiff comparison reports, VI snapshots / VI Browser, and a status dashboard. Driven entirely by this catalog so the configurator UI and the installer stay in sync and new capabilities are a one-entry change.",
   "history": {
     "comment": "Release notes for the tooling, newest first. `version` (above) is the CURRENT published release and MUST equal releases[0].version. The dashboard version badge and the What's New dialog read these notes to tell a consumer what changed between the version they run and the latest this source repo publishes. Each published version should also be tagged v<version> in this repo so consumers can pin an update to a specific release.",
     "releases": [
+      {
+        "version": "3.10.0",
+        "date": "2026-06-19",
+        "title": "Headless unit tests run for real: the UTF JUnit report library is baked into the worker",
+        "summary": "The unit-test runner invokes LabVIEW's built-in 'LabVIEWCLI -OperationName RunUnitTests' operation, but that operation only emits its JUnit results file when the NI 'UTF JUnit Report' library is present - without it the run failed with LabVIEW CLI error -350053 ('missing or bad files in the operation folder') and produced no report. That library (ni_lib_utf_junit_report) is now baked into the CI worker image alongside the UTF toolkit, so headless Unit Test Framework runs produce a real JUnit report that the dashboard turns into a results page. A separate crash in the report builder that only surfaced on Windows (a non-ASCII character printed to a code-page console) was also fixed.",
+        "highlights": [
+          "The worker image now bakes in NI's 'UTF JUnit Report' VIPM library (ni_lib_utf_junit_report 1.0.1.43), which the built-in RunUnitTests CLI operation needs to write its JUnit results.",
+          "Headless Unit Test Framework runs no longer fail with LabVIEW CLI error -350053; they emit a JUnit report that becomes a unit-test results page.",
+          "Fixed a Windows-only crash in the unit-test report builder caused by printing a non-ASCII character to a code-page console."
+        ]
+      },
+      {
+        "version": "3.9.0",
+        "date": "2026-06-19",
+        "title": "The upgrade page now names the repo it is updating, links it, and ends on your dashboard",
+        "summary": "The centralized What's New / upgrade page is served from the source site but upgrades a different consumer repo, which made it easy to lose track of which repository was being changed. It now brands the repo being upgraded throughout: the header and a persistent chip both show that repo, and every place a repo name appears is a clickable link to its GitHub page. The mechanics of upgrading are now above the fold - the Update action comes first and the long What's changed notes are collapsed by default behind a disclosure - and when the upgrade finishes you get a clear Done state with a Go to your dashboard button so you can immediately explore the new features.",
+        "highlights": [
+          "The header brand and a persistent chip both name the repo being upgraded (not the source site that serves the page), so it is always clear which repository the upgrade applies to.",
+          "Every repo name shown on the page is a clickable link to its GitHub repository.",
+          "What's changed is collapsed by default and the Update action is above the fold, so the steps that need you are visible without scrolling; the finished state links straight to your dashboard."
+        ]
+      },
+      {
+        "version": "3.8.3",
+        "date": "2026-06-19",
+        "title": "Queued runs are numbered by their real position in the Actions queue",
+        "summary": "The small position chip on a queued cell (#1, #2, ...) now shows where that run actually sits in the GitHub Actions queue, not just how many runs this browser queued. The dashboard reads the live list of runs still waiting for a runner on this repository - from any activity, push, or person - orders them oldest first, and labels each of your queued cells with its true place in line, so if eight other runs are already ahead these two read #9 and #10. The numbers refresh as the queue moves and the runs ahead start. A repository-scoped token cannot see other repositories that share the same hosted-runner pool, so contention from outside this repository is not counted.",
+        "highlights": [
+          "The #N chip on a queued cell reflects its real place among every run waiting on this repository, so runs queued ahead by pushes or other activities push your numbers back (for example #9 and #10 when eight are already ahead).",
+          "Positions are computed from the live Actions queue and refresh as runs ahead start, instead of just counting the runs queued from this browser.",
+          "The chip stays hidden when only one run is in line; a repository-scoped token cannot count runs from other repositories that share the same runner pool."
+        ]
+      },
+      {
+        "version": "3.8.2",
+        "date": "2026-06-19",
+        "title": "FAQ explains the worker-container lifecycle and how to change it",
+        "summary": "A new FAQ entry makes the container lifecycle explicit: a fresh container is created for each action, each revision, and each platform (docker run --rm) and destroyed the moment that action finishes - it is not created per file, and it is never reused across actions or across revisions, which keeps every run clean and reproducible. It also calls out the one exception (the VI Browser snapshot renderer keeps a single warm container per job and renders each unique VI once ever by content hash) and lists the settings you can change: which image each container runs (Container tab and per-action routing), when the image rebuilds (baked VIPC files plus Monitor), where containers run (self-hosted runners keep a Docker layer cache between jobs), and how many spin up at once (max concurrent runners) or at all (enable/disable capabilities, Windows/Linux).",
+        "highlights": [
+          "Clarifies that each action, each revision, and each platform gets its own fresh container (docker run --rm): one container processes every VI in a revision, but containers are never shared across actions or across revisions.",
+          "Documents the one exception - the VI Browser snapshot renderer keeps a single warm container per job and renders each unique VI exactly once ever by content hash.",
+          "Lists the related settings users can change: container image selection and per-action routing, image rebuild triggers (Monitor), self-hosted runners, and concurrency limits."
+        ]
+      },
+      {
+        "version": "3.8.1",
+        "date": "2026-06-19",
+        "title": "Populate history closes after you queue, revealing the dashboard",
+        "summary": "When you press Queue runs in the Populate dashboard history dialog and the runs are queued successfully, the dialog now closes itself so you land back on the dashboard and can immediately watch the just-queued activities fill in - each shows a Queued badge until its run starts. If some runs could not be dispatched, or a token or permission is missing, the dialog stays open with the explanation so nothing is lost and you can retry.",
+        "highlights": [
+          "The Populate history dialog closes automatically after a successful queue, so you land on the dashboard and can see the queued runs.",
+          "A failed or partial queue keeps the dialog open with its message and a re-enabled Queue button, so you can read it and retry."
+        ]
+      },
+      {
+        "version": "3.8.0",
+        "date": "2026-06-19",
+        "title": "Unit tests: run the NI Unit Test Framework with the built-in LabVIEW CLI",
+        "summary": "Unit-test runs now execute the NI LabVIEW Unit Test Framework through the first-party RunUnitTests operation that ships with the LabVIEW command line interface in the CI container, instead of a vendored runner VI. For each configured UTF project the runner invokes \"LabVIEWCLI -OperationName RunUnitTests -ProjectPath <project> -JUnitReportPath <out> -LabVIEWPath <labview> -Headless\", which runs every unit test defined in the project and writes a JUnit report directly. This mirrors how the VI Analyzer activity drives RunVIAnalyzer, removes the old DCAF-based \"UTF JUnit Report\" runner (and its mass-compile workaround) that failed to load under LabVIEW 2026, and means the tests in a project's .lvproj run with no extra VIs vendored into the repository.",
+        "highlights": [
+          "NI Unit Test Framework tests now run via the built-in LabVIEWCLI RunUnitTests operation in the container; the project's .lvproj is passed straight through and a JUnit report comes back.",
+          "Removed the vendored DCAF UTF runner VIs and the mass-compile workaround that were needed for the old RunVI approach.",
+          "The per-tool command: override still lets you customise the exact invocation without editing the runner."
+        ]
+      },
+      {
+        "version": "3.7.1",
+        "date": "2026-06-19",
+        "title": "Populate history: re-run Mass Compile, and a clearer activity picker",
+        "summary": "The Populate dashboard history dialog now lets you re-run Mass Compile on revisions that already have a result. Its Re-run option was incorrectly greyed out because the Mass Compile cell was not recognised as an existing result, so the dialog only ever offered to fill the empty revisions. Each activity now shows an accurate count (for example \"5 missing, 8 done\" instead of \"5 to fill\"), and Re-run is offered whenever there is an existing result to replace. The activity controls also stay fully interactive after you press Clear: a skipped activity dims only its name, not its Skip / Fill / Re-run buttons, so any combination of activities can always be chosen. As before you can target all revisions, a range, or specific ones, and choose Fill (only the missing results) or Re-run (replace existing) per activity.",
+        "highlights": [
+          "Mass Compile can be re-run from Populate history; its Re-run option is no longer greyed out when results already exist.",
+          "Each activity shows an accurate \"N missing, M done\" count, and Fill / Re-run are enabled only when they would queue work, with a tooltip explaining why when they are not.",
+          "Pressing Clear no longer makes the activity list look disabled: the Skip / Fill / Re-run controls stay crisp so any subset of activities and revisions can be chosen."
+        ]
+      },
+      {
+        "version": "3.7.0",
+        "date": "2026-06-18",
+        "title": "Choose how the VI Browser renders: Windows or Linux, 1.0 or 2.0",
+        "summary": "The Configure page gains a VI Browser tab (and the header menu gains a VI Browser entry) where you choose which renders run automatically when a new revision lands: the classic 1.0 HTML gallery, and the position-aware 2.0 view on Windows and/or Linux. 2.0 on Windows - produced by the same Windows snapshot run - is now the recommended path, while the experimental Linux toimages render, which has known diagram-capture display bugs, is kept available but turned off by default. The classic 1.0 gallery continues to run on Windows. Your selection is saved to config.viBrowser in .github/labview-ci.yml and honoured by the VI Snapshots workflows: the Windows run emits the position-aware 2.0 frames only when Windows 2.0 is enabled, and the Linux toimages render auto-runs only when Linux 2.0 is enabled (a manual run always works).",
+        "highlights": [
+          "New VI Browser tab on the Configure page (and a VI Browser entry in the header menu) to pick which render generations and operating systems run on each new revision.",
+          "VI Browser 2.0 can be rendered on Windows - now the recommended path - with the Linux toimages render kept as a configurable, experimental option (it has known diagram-capture display bugs).",
+          "The choice is stored in config.viBrowser in labview-ci.yml; the Windows snapshot run and the Linux 2.0 render honour it, and a manual run is always available."
+        ]
+      },
+      {
+        "version": "3.6.7",
+        "date": "2026-06-19",
+        "title": "Unit tests: relink the vendored UTF runner so LabVIEW can load it in CI",
+        "summary": "With the NI Unit Test Framework now installed in the worker, the headless runner reached the final step - opening the vendored UTF report VI through LabVIEWCLI RunVI - but LabVIEW rejected it with error 1031 (\"the VI is broken\") because that VI (from the open-source DCAF UTF JUnit library) was saved in a much older LabVIEW and its compiled code was stale for LabVIEW 2026. The runner now mass-compiles the vendored runner folder once before invoking it - exactly the operation the mass-compile activity already uses - so the VI and its report library are relinked, recompiled and re-saved in the worker LabVIEW before RunVI opens them. The step is best-effort and its log names any genuinely missing dependency, so a load failure is actionable rather than opaque. No configuration changed.",
+        "highlights": [
+          "The unit-test runner mass-compiles the vendored UTF report VIs into the worker LabVIEW before running them, fixing the error-1031 \"broken VI\" load that blocked headless UTF execution.",
+          "Relinking reuses the same LabVIEWCLI MassCompile operation the mass-compile activity uses, and runs headless for LabVIEW 2026 Windows containers.",
+          "The pre-compile is best-effort and surfaces any missing dependency by name, so problems are actionable instead of an opaque RunVI failure."
+        ]
+      },
+      {
+        "version": "3.6.6",
+        "date": "2026-06-19",
+        "title": "Populate history: re-run finished activities, a working Close button, and per-activity Fill/Re-run controls",
+        "summary": "The Populate dashboard history dialog can now re-run activities that already have results, not just fill empty cells - so you can rebuild a revision's Mass Compile, VI Analyzer, VIDiff, Unit Tests or Antidoc report from the one place that walks your whole history. Each activity now carries its own Skip / Fill / Re-run control (VI Snapshots, which is content-addressed and only ever backfills missing renders, offers Skip / Render): Fill queues only the missing results, while Re-run re-dispatches every selected revision and replaces the existing result, painting each finished cell with a Queued spinner the moment you click. The old global 'Diff-based - modified files only' and 'Only workers that haven't run yet' toggles are gone; they return as one-click quick presets - Fill gaps, Re-run all, New only, Diff only, Clear - that set those per-activity modes, and each row shows a live 'N missing / N done' count that tracks the revision scope you pick. Finally, the dialog's '× Close' button and a click on the backdrop now actually close it: the close handler was defined inside the dashboard's controller and never exposed to the inline button, so only Cancel and Esc worked before.",
+        "highlights": [
+          "Re-run activities that already have results - the dialog queues finished cells, not just empty ones, so any revision's report can be rebuilt straight from Populate history.",
+          "Each activity has its own Skip / Fill / Re-run control (Snapshots: Skip / Render) with a live 'N missing / N done' count; the former Diff-based and 'haven't run yet' toggles became quick presets (Fill gaps, Re-run all, New only, Diff only, Clear).",
+          "Fixed the '× Close' button and backdrop click, which previously did nothing - only Cancel and Esc closed the dialog."
+        ]
+      },
+      {
+        "version": "3.6.5",
+        "date": "2026-06-18",
+        "title": "Workflows updated to Node 24 actions, clearing the Node 20 deprecation warning",
+        "summary": "GitHub now runs JavaScript-based Actions on Node 24 by default and will remove Node 20 from its runners in the fall of 2026, so any workflow still pinned to a Node 20 action prints a deprecation warning on every run. The third-party actions used across the CI workflows and the install/update generators are now pinned to their Node 24 releases - actions/checkout v5, actions/upload-artifact v6, actions/setup-python v6, actions/github-script v8, Docker login-action and setup-buildx-action v4, and peaceiris/actions-gh-pages v4.1.0 - so the warning is cleared and the pipelines keep working once Node 20 is removed. This is an internal maintenance change with no behavior difference: the pins were chosen for a clean, backward-compatible cutover (for example checkout v5 rather than v7, whose fork pull-request checkout behavior changed). New installs get the updated pins immediately; existing repositories pick them up the next time they update their tooling. GitHub-hosted runners already meet the newer runner version these releases require.",
+        "highlights": [
+          "Third-party GitHub Actions across the CI workflows and the installer/generated workflows are bumped to their Node 24 releases, so the 'Node 20 is deprecated' warning no longer appears on each run.",
+          "Pins chosen for a behavior-preserving cutover: checkout v5, upload-artifact v6, setup-python v6, github-script v8, Docker login/buildx v4, and gh-pages v4.1.0.",
+          "Maintenance only - no functional change; new installs adopt the pins now and existing repositories get them on their next tooling update."
+        ]
+      },
+      {
+        "version": "3.6.4",
+        "date": "2026-06-18",
+        "title": "Update now applies straight to your repository - no pull request to merge",
+        "summary": "Clicking Update now used to build the update, push a branch, and open a pull request for you to merge - but on repositories that keep GitHub's secure default (Actions can't create pull requests) the run finished green with no PR, leaving the update stuck on a manual step. The Apply LabVIEW CI update workflow now commits the new version straight to your default branch using the built-in token, so the dashboard rebuilds and the badge turns green with no pull request to open, approve, or merge. A protected default branch still falls back to a pull request with auto-merge enabled. The What's New page tracks Apply -> Publish -> Done and only asks for a one-time token when a release changes workflow files the built-in token can't push.",
+        "highlights": [
+          "Update now commits the new version straight to your default branch - no pull request to open, approve, or merge.",
+          "Uses only the built-in token's Contents permission, so it no longer depends on the repo allowing GitHub Actions to create pull requests (the secure default that used to leave a finished update with no PR).",
+          "A protected default branch falls back to a pull request with auto-merge; the tracker shows Apply -> Publish -> Done and only prompts for a one-time token when a workflow-file-only change genuinely needs it."
+        ]
+      },
+      {
+        "version": "3.6.3",
+        "date": "2026-06-19",
+        "title": "VI Browser: a new VI shows a \"New\" badge, and Diff is reserved for actual changes",
+        "summary": "In the VI Browser file tree, every changed VI used to show the same \"diff\" badge - even a brand-new VI that has no previous version to compare against, so clicking it opened a diff view that could not show a meaningful comparison. A VI that is new in the selected revision now shows a green \"New\" badge that opens its snapshot, while a modified VI keeps the brown \"Diff\" badge. The Diff view - and the toolbar's Diff toggle and \"View diff report\" link - is offered only for an actual change: selecting Diff shows only the side-by-side report, or a clear note when one has not been generated yet, and never falls back to the 1.0 or 2.0 visualization. A stale view=diff link to a new VI now opens its snapshot instead.",
+        "highlights": [
+          "A VI that is new in a revision shows a green \"New\" badge (instead of \"diff\") and opens its snapshot; a modified VI shows the brown \"Diff\" badge.",
+          "The Diff toggle and the \"View diff report\" link appear only for a modified VI; for a new VI the Diff toggle is grayed out with a tip that there is no earlier version to compare.",
+          "Selecting Diff shows only the side-by-side report, or a note when it has not been generated yet - it never shows the 1.0 or 2.0 render."
+        ]
+      },
+      {
+        "version": "3.6.2",
+        "date": "2026-06-19",
+        "title": "Unit tests: the worker image now actually installs the NI Unit Test Framework",
+        "summary": "The previous release added headless NI Unit Test Framework (UTF) test execution but the worker image discovered the UTF package by searching the NI feed for the words \"unit test framework\" - and the real package is named ni-utf-labview-support, which that search never matched, so UTF was silently absent and the runner reported no tests. The image now pins ni-utf-labview-support by name - exactly the way the VI Analyzer support package is pinned - so UTF is installed every build, with feed discovery kept only as a fallback and a UTF_PACKAGE build-arg to override the name for other feeds. No configuration or report format changed; existing repositories just get a worker that can run their .lvtest files.",
+        "highlights": [
+          "The worker image installs the NI Unit Test Framework by its pinned package name (ni-utf-labview-support) instead of relying on a feed name-search that never matched it.",
+          "UTF install mirrors the VI Analyzer support-package install; feed discovery remains a fallback and a UTF_PACKAGE build-arg overrides the name for other LabVIEW feeds.",
+          "The step is still best-effort: if UTF cannot be installed the build emits a warning and the unit-test runner degrades gracefully rather than failing."
+        ]
+      },
+      {
+        "version": "3.6.1",
+        "date": "2026-06-18",
+        "title": "Changelog: restore the v3.5.3 release note",
+        "summary": "While v3.6.0 was being published, a concurrent edit dropped the v3.5.3 entry (VI Browser 2.0: the diagram canvas stays white in dark mode) from this changelog. This patch restores it so the release history is complete - the v3.5.3 change itself already shipped as part of v3.6.0; only its note was missing. No tooling changed in this patch.",
+        "highlights": [
+          "Restored the v3.5.3 release note that a concurrent edit dropped from the changelog (no tooling change)."
+        ]
+      },
+      {
+        "version": "3.6.0",
+        "date": "2026-06-18",
+        "title": "Run NI Unit Test Framework tests in CI",
+        "summary": "The Unit Tests activity can now run NI Unit Test Framework (UTF) tests headlessly in the Windows worker, so a project's .lvtest tests report pass/fail straight to the dashboard's Unit Tests column. The worker image now installs the NI Unit Test Framework toolkit (next to the VI Analyzer support package), the canonical open-source NI 'UTF JUnit Report' library is bundled and driven through LabVIEWCLI to produce a JUnit report, and the example project's User-Defined Test .lvtest tests are wired up as a working reference. The Unit Testing configurator's NI Unit Test Framework tab is no longer 'coming soon' - point it at the folder or .lvproj that holds your .lvtest files and CI runs them.",
+        "highlights": [
+          "Unit Tests now executes NI Unit Test Framework (.lvtest) tests headlessly and publishes their pass/fail to the dashboard.",
+          "The Windows worker image installs the NI Unit Test Framework toolkit so UTF tests can run in CI.",
+          "The Unit Testing configurator's NI Unit Test Framework tab is enabled - choose where your .lvtest tests live and CI runs them."
+        ]
+      },
+      {
+        "version": "3.5.3",
+        "date": "2026-06-18",
+        "title": "VI Browser 2.0: the diagram canvas stays white in dark mode",
+        "summary": "The in-place 2.0 diagram viewing area now always uses a white canvas, even when the dashboard is in dark mode. LabVIEW block diagrams and front panels are drawn on white, so a dark backdrop made wires and labels harder to read and clashed with the rendered images. The page chrome around the viewer still follows the light/dark theme.",
+        "highlights": [
+          "The VI Browser 2.0 diagram canvas is always white - even in dark mode - matching how LabVIEW draws diagrams."
+        ]
+      },
+      {
+        "version": "3.5.2",
+        "date": "2026-06-18",
+        "title": "VI Browser: a 'Diff' option on the Viewer switch",
+        "summary": "The VI Browser's Viewer switch now has a third option - Diff - alongside 1.0 and 2.0, so a changed VI's side-by-side diff is part of the same control you use to choose how a VI is shown. Diff is grayed out, with a tip strip explaining the VI was not modified in this revision, for any VI that did not change, and it lights up for changed VIs. Clicking a VI's diff badge in the file tree now also selects the Diff option, and switching back to 1.0 or 2.0 returns to that VI's snapshot - so moving between a VI's snapshot and its diff is one consistent toggle.",
+        "highlights": [
+          "The Viewer switch gained a third option, Diff, next to 1.0 and 2.0 for the open VI's side-by-side diff report.",
+          "Diff is grayed out with an explanatory tip strip ('not modified in this revision') for VIs that did not change, and is enabled for changed VIs.",
+          "Clicking a VI's diff badge selects the Diff option; switching to 1.0 or 2.0 returns to that VI's snapshot, so snapshot and diff share one toggle."
+        ]
+      },
+      {
+        "version": "3.5.1",
+        "date": "2026-06-18",
+        "title": "VI Browser 2.0: case selectors restored on diagrams with structures",
+        "summary": "A recent renderer change clipped the case selector that sits just above each Case, Event, and Stacked-Sequence structure, so some block diagrams - especially larger producer/consumer VIs with an event handler and a case structure - showed as a static image even though they had multiple cases to page through. The selector tab is now shown again on every structure (including nested ones), so you can step through each structure's cases with the on-frame arrows or the left/right keys. Stepping still keeps the diagram at its fixed parent size - only the clip that hid the selector was removed.",
+        "highlights": [
+          "The case selector (left/right through 'n/N') is visible again on every Case/Event/Stacked-Sequence structure, including nested ones.",
+          "Block diagrams that have structures are no longer shown as a static image with no way to scroll their cases.",
+          "Only the selector-hiding clip was removed; each case still renders at its structure's fixed size."
+        ]
+      },
+      {
+        "version": "3.5.0",
+        "date": "2026-06-18",
+        "title": "VI Browser 2.0 is now built in - no render image or token to set up",
+        "summary": "The in-place 2.0 renderer (true-to-LabVIEW front panels and block diagrams) used to require a separate private image and a registry token. It is now built into the tooling: every repo builds its OWN render image from the vendored engine and pulls it with the built-in Actions token - so 2.0 works for everyone with no secrets, no token wizard, and no manual setup. A new 'Build VI Browser 2.0 render image' workflow publishes the image to your repo's own registry, and the snapshot-to-JSON workflow pulls it automatically (and skips gracefully until the first image build finishes). The classic 1.0 flat view is unchanged.",
+        "highlights": [
+          "VI Browser 2.0 render engine is vendored into the tooling - no private image and no read:packages token.",
+          "Each repo builds and pulls its own render image with the built-in GITHUB_TOKEN (override with the optional TOIMAGES_IMAGE variable).",
+          "The old render-token setup is deprecated and no longer needed; existing TOIMAGES_IMAGE overrides still work.",
+          "The 1.0 flat VI Browser view is untouched; 2.0 lights up wherever a rendered JSON exists and falls back to 1.0 otherwise."
+        ]
+      },
+      {
+        "version": "3.4.42",
+        "date": "2026-06-18",
+        "title": "VI Browser 2.0: diagrams open fitted, smoother zoom, and a Fit button",
+        "summary": "Polish for the in-place 2.0 renderer. Every diagram now opens fitted in the visible area - even very large block diagrams that previously overflowed - so the size stays consistent as you move between VIs. Ctrl/Cmd + scroll zoom is now smooth and proportional instead of jumping in big steps, and a new Fit button returns the diagram to its default size and position. Each Case/Event case is also clipped to its structure's slot so it always renders at the parent-diagram size.",
+        "highlights": [
+          "Diagrams always open fitted to the view (the fit no longer bottoms out, so very large diagrams fit too).",
+          "Smoother Ctrl/Cmd+scroll zoom - proportional to the scroll amount and gentle per tick.",
+          "New 'Fit' button resets the diagram to its default fitted size and position."
+        ]
+      },
+      {
+        "version": "3.4.41",
+        "date": "2026-06-18",
+        "title": "Deep link and share any report - a Share button on snapshots, diffs, Mass Compile, VI Analyzer and more",
+        "summary": "Every report view is now a shareable, printable link. The VI Browser mirrors the open VI and whether you are viewing its snapshot or its side-by-side diff (along with the revision, container platform, 1.0/2.0 view and changed-only filter) into the address bar, and reopens that exact view when someone follows the link - so sending a colleague a specific snapshot or diff lands them on it instead of the default page. A new Share button in the shared header (and the mobile menu) copies the deep link, opens it in a new tab, prints just the report content, or hands off to the device native share sheet. The framed Mass Compile / VI Analyzer / Unit Tests / Antidoc reports were already deep-linkable and now carry the same Share and Print affordance. Printing drops the page chrome so the output is the report itself.",
+        "highlights": [
+          "VI Browser deep links: the open VI plus snapshot/diff view (and revision, platform, 1.0/2.0, changed-only) are encoded in the URL and restored on load.",
+          "Share button in the header and mobile menu: copy link, open in a new tab, native share, and print.",
+          "Print yields just the report or snapshot - the header chrome is hidden when printing.",
+          "Covers snapshots, diffs, and the framed Mass Compile / VI Analyzer / Unit Tests / Antidoc reports."
+        ]
+      },
+      {
+        "version": "3.4.40",
+        "date": "2026-06-18",
+        "title": "VI Browser 2.0 renders every revision (backfill) + a live 2.0 glyph in the file tree",
+        "summary": "The in-place 2.0 view now covers every VI in your history, not just ones whose content matches the latest commit. The render workflow walks each VI-touching commit in a detached worktree (so a VI that changed - like a top-level main.vi - is rendered with the dependencies of its own revision), publishes results incrementally, and the VI Browser file tree shows a small 2.0 glyph beside each file that has a position-aware render. The glyph appears on its own as a run publishes results, with no manual reload, and the in-viewer Re-run now renders the whole history.",
+        "highlights": [
+          "2.0 renders now backfill across all VI-touching commits via per-commit worktrees, so every revision's VIs get a render (fixes VIs like main.vi that changed since HEAD never appearing in 2.0).",
+          "Results publish incrementally during a run, and a flat json-blobs.json index lets the file tree light up a 2.0 glyph per file as renders land - no reload.",
+          "The in-viewer 'Re-run the 2.0 snapshot' (and first-time Generate) now dispatch a full backfill instead of only the current commit."
+        ]
+      },
+      {
+        "version": "3.4.39",
+        "date": "2026-06-18",
+        "title": "A new revision appears on the dashboard right away, with its activities shown as Queued or Running",
+        "summary": "When you push a new revision, its row now appears on the dashboard promptly - before any CI activity finishes - and each activity reads Queued or Running rather than an idle run button. Previously the dashboard only rebuilt once an activity posted a commit status (which lands part-way through a run) or finished, so a new revision could take a while to show up and, when it did, some activities looked idle even though they were already queued or running - or had already completed (snapshots, for example, often appeared done before the row did). The dashboard now reads the live Actions API for the runs that are queued or in progress for each commit and renders those cells accordingly, so the table reflects what is actually happening the moment its build runs. The source repository's own dashboard also rebuilds as soon as a new example revision is pushed and as soon as each run is created, so the row is added first and then fills in activity by activity as each one completes - a brand-new revision will not have snapshots for its new files until its snapshot run finishes, which is expected.",
+        "highlights": [
+          "A pushed revision's row now appears on the dashboard right away and shows each activity as Queued or Running - read live from the Actions API - instead of an idle run button until a status is posted.",
+          "The dashboard reflects queued and in-progress runs the moment its build runs, no longer waiting for an activity to post a commit status part-way through (or to finish) before a cell stops looking idle.",
+          "The source repo's dashboard rebuilds as soon as a new example revision is pushed and as soon as each run is created, so the row is added first and then updates activity by activity as each one completes."
+        ]
+      },
+      {
+        "version": "3.4.38",
+        "date": "2026-06-18",
+        "title": "VI Browser 2.0: switch between a VI's front panel and block diagram",
+        "summary": "The 2.0 in-place report adds a Front Panel / Block Diagram toggle to the viewer toolbar, so you can flip between a VI's user interface and its code (Case/Event structures navigated in place) without leaving the browser. Your choice sticks as you move between VIs.",
+        "highlights": [
+          "New Front Panel / Block Diagram switch on the 2.0 report toolbar, beside the 1.0/2.0 viewer toggle.",
+          "Front Panel shows the VI interface; Block Diagram opens the in-place renderer rooted on the diagram.",
+          "The choice is sticky across VIs; a VI with no block-diagram render keeps that option disabled and stays on the front panel."
+        ]
+      },
+      {
+        "version": "3.4.37",
+        "date": "2026-06-18",
+        "title": "The About page credits the repository these tools came from",
+        "summary": "The About page (opened from the dashboard menu) now starts with a short line naming where the tooling came from - 'These tools were installed from the <repo> repo, which are maintained by <owner>.' - with both the repository name and the owner shown as links. So from any client dashboard you can click About and go straight to the source project on GitHub. The names and links are resolved from the tooling's published source location and follow the relocation pointer, so they always point at the current official home and update automatically if the project ever moves to a new repository or owner.",
+        "highlights": [
+          "The About page now opens with a one-line credit naming the repository the tooling was installed from and the owner who maintains it.",
+          "Both the repository name and the owner name are clickable, so you can jump from any client's About page straight to the source project (and its owner) on GitHub.",
+          "The credit is resolved from the published source location and follows the relocation pointer, so it always points at the current official home and updates automatically if the project moves."
+        ]
+      },
+      {
+        "version": "3.4.36",
+        "date": "2026-06-18",
+        "title": "VI Browser shows a 'diff' badge on every changed VI and can run or regenerate the side-by-side VIDiff report on demand",
+        "summary": "In the VI Browser a changed VI now always shows a uniform 'diff' badge (its colour still encodes added/modified/deleted) instead of sometimes reading 'modified'. Opening a VI whose side-by-side VIDiff report has not been generated yet shows an in-viewer panel that explains the report has not been run and offers to run it - for just that VI or for every VI the revision changed. When a report already exists, the toolbar gains a 'Regenerate diff' button that re-runs VIDiff the same way. Runs are queued straight from the page using the same dispatch token the VI Browser 2.0 setup already stores; when the run finishes and the dashboard redeploys, reloading shows the report. The VIDiff container workflows gained an optional 'files' input so a single-VI diff only renders that VI, and the VIDiff deploy now merges each report into the revision's existing index so a single-VI run never drops other VIs' reports.",
+        "highlights": [
+          "Every changed VI shows a consistent 'diff' badge - no more 'modified' label when the side-by-side report has not been generated yet.",
+          "Opening a VI with no diff report shows a clear message plus a button to run VIDiff for just that VI or for the entire revision.",
+          "A 'Regenerate diff' button in the viewer toolbar re-runs VIDiff for a VI that already has a report.",
+          "VIDiff workflows accept an optional single-VI 'files' input, and the deploy merges reports so a single-VI run never removes other VIs' reports from the revision."
+        ]
+      },
+      {
+        "version": "3.4.35",
+        "date": "2026-06-18",
+        "title": "Populate history dialog: lists the workers you actually installed, can target only workers that have never run, and the banner opens it instead of launching everything",
+        "summary": "The Populate history dialog now reflects what each repository actually has installed and no longer hides or greys out activities by default. It lists exactly the workers that have runnable revisions (so a newly added worker such as Unit Tests now appears, and on a fresh install every installed activity is shown and selected with nothing greyed out), and it adds an \"Only workers that have never run\" option that queues just the activities with no results anywhere - leaving already-populated workers alone, which is handy right after you add a new worker. The \"Diff-based - modified files only\" preset is now off by default and no longer disables the other activities; ticking it simply narrows the selection to VI Snapshots and VIDiff, and you can still re-tick any worker by hand. Finally, the fresh-install banner button (and its inline link) now open the Populate history chooser instead of immediately launching CI for the whole history - so historical runs always start from the dialog and nothing is queued until you confirm.",
+        "highlights": [
+          "The dialog lists exactly the activities this repository actually installed, so newly added workers like Unit Tests appear and on a fresh install nothing is greyed out.",
+          "New \"Only workers that have never run\" option queues just the activities with no results anywhere, leaving already-populated workers untouched.",
+          "The Diff-based preset is now off by default and only (un)checks activities instead of disabling them, so you can re-tick any worker by hand.",
+          "The fresh-install banner button now opens the Populate history chooser instead of immediately launching everything - nothing is queued until you confirm."
+        ]
+      },
+      {
+        "version": "3.4.34",
+        "date": "2026-06-18",
+        "title": "Apply to a new repository: pick your target repo from a list, and re-installs wait for the new version to publish",
+        "summary": "On the Apply to a new repository page, the 'Target repo (owner/name)' field is now a suggest-as-you-type picker once an install token is saved in this browser: it offers a dropdown of the repositories that token can see (most recently pushed first, de-duplicated) while still accepting any owner/name you type, so you no longer have to remember and retype the exact slug. With no token saved the field is unchanged - a plain free-text box - so the command-line path and first-time visitors see exactly what they did before. A small 'Pick from your repositories...' link below the field reveals an inline row to paste or create a token; the Create a token link is pre-filled with the installer's permissions and carries a tip to choose 'All repositories' under Repository access so every repo shows up in the list. The token is the same one the one-click install already uses, so there is nothing extra to enter, and a 'Forget token' link clears it and the list. Separately, when you re-install or update an EXISTING dashboard, the installer now waits until the published catalog.json actually reaches the version you just installed before it shows the dashboard as live - so a re-install can no longer flash 'Done' while GitHub Pages is still serving the previous build; if the new build has not published in time it honestly reports that the dashboard is still updating rather than claiming it is done. The What's New update flow gained the matching guard: after an update pull request merges, the Update now controls lock while the new version publishes - verified against the real deployed catalog - so you cannot start a duplicate update, and the page refreshes itself the moment the new version goes live.",
+        "highlights": [
+          "The target-repo field becomes a suggest-as-you-type dropdown of your repositories when an install token is saved, while still accepting any owner/name you type.",
+          "With no token saved the field is unchanged - a plain free-text box - so nothing changes for the command-line path or first-time visitors.",
+          "A small 'Pick from your repositories...' link reveals an inline token paste/create row; the create link is pre-filled with the installer permissions and a tip to grant access to all repositories so the full list appears.",
+          "Re-installing or updating an existing dashboard now waits for the published catalog.json to reach the just-installed version before reporting the dashboard live, so a re-install cannot show a misleading 'Done' while the old build is still served.",
+          "If the new version has not published in time, the installer reports that the dashboard is still updating to the new version instead of claiming it is done.",
+          "On the What's New page, once an update pull request merges the Update now controls lock until the new version is actually published (verified against the deployed catalog), preventing duplicate update runs, and the page auto-refreshes when it goes live."
+        ]
+      },
+      {
+        "version": "3.4.33",
+        "date": "2026-06-18",
+        "title": "Updating is clearer: merge the pull request, no phantom \"approve checks\" step",
+        "summary": "The What's New update flow no longer presents \"approve the pull request's checks\" as a required gate. A tooling update changes only configuration and tooling files and is opened by automation, so the pull request it creates normally has no checks at all and is ready to merge immediately - but the old wording told you to \"approve its checks if GitHub shows Action required,\" sending people to hunt for an Approve and run button that was not there and making updates feel stuck. The flow now leads with the real action - Merge it - and the live progress tracker reads the pull request's actual check state: it says plainly when there is nothing to wait for, and only surfaces Approve and run when GitHub has genuinely paused a check on an automation-opened pull request. The tracker's fourth step is renamed from Approve checks to Review, and the up-front checklist and help text were reworded to match.",
+        "highlights": [
+          "The update tracker now leads with Merge it and reads the pull request's real check state, so it tells you plainly there is nothing to approve instead of waiting on a check that does not exist.",
+          "Approve and run guidance now appears only when GitHub has actually paused a check (Action required) on an automation-opened pull request - which a config and tooling-only update normally does not have.",
+          "Renamed the tracker step from Approve checks to Review and reworded the What's New checklist and help text so the only required action is merging the pull request."
+        ]
+      },
+      {
+        "version": "3.4.32",
+        "date": "2026-06-18",
+        "title": "Queue all history: every cell shows 'Queued' the instant you click, and one failed dispatch can't stop the rest",
+        "summary": "When you click Run all history (or queue activities from the Populate history dialog), every targeted cell now turns into a 'Queued' badge the instant you click - in a single pass, before the throttled dispatch even starts - so the whole batch visibly lights up at once instead of trickling in one cell at a time. Previously each cell was only marked after its own dispatch returned, in sequence, so if any single dispatch was slow, errored, or threw partway through, the cells after it could be left looking unqueued even though you asked to run them - and in the worst case the activities still waiting in line were never dispatched at all. The dispatch sequence is now resilient: each activity is queued independently, a failure reverts only its own cell (and is reported), and no single error can abort the rest. A cell whose dispatch genuinely fails returns to its run button so you can retry just that one.",
+        "highlights": [
+          "Run all history (and Populate history) now paint every targeted cell 'Queued' immediately on click, as one batch, instead of one at a time as each dispatch returns.",
+          "A slow, failed, or throwing dispatch can no longer stop the remaining activities from being queued - each cell is dispatched independently and the sequence always continues.",
+          "If a cell's dispatch truly fails it reverts to its run button and the failure is reported, so the dashboard never shows a phantom 'Queued' for something that did not start."
+        ]
+      },
+      {
+        "version": "3.4.31",
+        "date": "2026-06-18",
+        "title": "VI Browser tree: file extensions are shown and the folder tree opens expanded",
+        "summary": "Two quality-of-life changes to the VI Browser's file tree. File names now keep their extension - for example 'Initialize Listener.vi' or 'Controller Commands.ctl' - instead of being stripped to the bare name, so VIs and type definitions are easy to tell apart at a glance. And the folder tree now opens fully expanded every time you open the VI Browser, so the whole VI hierarchy is visible immediately instead of collapsed to the top-level folder. Your own expand and collapse choices are still preserved while you browse, and the Expand all and Collapse all controls work exactly as before.",
+        "highlights": [
+          "File-tree labels now include the extension (.vi, .ctl), so VIs and controls are distinguishable at a glance.",
+          "The folder tree opens fully expanded on every load - not just the first visit - so the full hierarchy is visible immediately.",
+          "Manual expand and collapse choices are preserved while browsing; Expand all and Collapse all are unchanged."
+        ]
+      },
+      {
+        "version": "3.4.30",
+        "date": "2026-06-18",
+        "title": "VI Snapshots column now reflects the real gallery, with a per-revision snapshot glyph",
+        "summary": "The dashboard's Snapshots column previously read VIDiff data, so it sat empty for revisions that DID have rendered snapshots. It now reads the content-addressed snapshot store directly - a new blobs.json index of every rendered VI blob (or, for galleries built before it, the per-commit manifests) - and reports how many of each revision's VIs have a snapshot. Full coverage shows a count; partial coverage is flagged amber so the missing VIs are visible (older revisions whose changed VIs were never rendered), and a revision with none offers a one-click run. That run, and the empty-cell history backfill, now dispatch an incremental backfill that renders exactly the missing VIs across all history (already-rendered content is skipped). A small image glyph next to each commit message marks revisions that have snapshots, with a 'Snapshots exist for this revision' tooltip.",
+        "highlights": [
+          "The Snapshots column reads the real snapshot store instead of VIDiff, so revisions that have snapshots no longer show an empty column.",
+          "Partial coverage is shown as have/total (amber) and a per-message image glyph marks revisions that have snapshots - making missing VIs visible at a glance.",
+          "Running snapshots from an empty cell now backfills the whole history incrementally, rendering exactly the VIs that were never captured."
+        ]
+      },
+      {
+        "version": "3.4.29",
+        "date": "2026-06-18",
+        "title": "Queued cells stay put until the run finishes - and show a clickable red error if it fails",
+        "summary": "When you queue an activity from a dashboard cell - a single Run now, a re-run, or a whole-history backfill - the cell's 'Queued' badge now stays put until that run actually finishes, even if you close the dashboard and come back much later. Previously the optimistic badge was only remembered for about twenty minutes and then quietly reverted to the run button, so a run still waiting behind GitHub's concurrency limit looked like it had vanished with no result. The dashboard now keeps each queued cell tied to its real GitHub run and reconciles it on every visit - looking the run up directly when it is too old to appear in recent activity - so a run that is still queued or running keeps its badge for as long as it takes, a finished run hands off to the normal pass/fail result, and a run that errored turns the cell into a sticky red exclamation you can click to open the failed run and see exactly what went wrong.",
+        "highlights": [
+          "A queued cell now persists until its run finishes - closing the dashboard and coming back later no longer makes the 'Queued' badge disappear.",
+          "Runs are reconciled against GitHub on every visit, and looked up directly by id when too old to show in recent activity, so a run held behind the concurrency limit keeps its place instead of timing out.",
+          "A failed run now marks the cell with a clickable red error badge that opens the run on GitHub to show what went wrong, instead of silently reverting to the run button."
+        ]
+      },
+      {
+        "version": "3.4.28",
+        "date": "2026-06-18",
+        "title": "What's New opens from the source site, so updates always use the latest UI",
+        "summary": "The dashboard's What's New / Update entry now opens the always-current copy hosted on the LabVIEW CI source site instead of the copy bundled with your repository - passing your repository, its installed version, and its source pointer along in the link. A repository that is behind would otherwise open its own older update page, carrying whatever bugs that version shipped; routing through the source site means you always get the newest update experience and fixes regardless of how old the installed tooling is. The page reads your repository's deployed catalog cross-origin to fill in anything not in the link, shows your repository and installed version, and dispatches the update against your repository exactly as before. A repository's own source dashboard still opens its local page. This is the first half of decoupling the upgrade flow from whatever tooling version you happen to have installed.",
+        "highlights": [
+          "The What's New / Update menu entry now opens the source site's always-latest page (with your repo, version, and source pointer as parameters) instead of your repository's bundled copy - so out-of-date repositories still get the newest update UI and fixes.",
+          "The page resolves the target repository from the link and reads that repository's deployed catalog cross-origin, so it shows the right installed version and dispatches the update against the right repository.",
+          "The source repository's own dashboard is unchanged - it still opens its local What's New page."
+        ]
+      },
+      {
+        "version": "3.4.27",
+        "date": "2026-06-18",
+        "title": "Fix: the tooling-update workflow no longer fails to parse after Apply to New Repo",
+        "summary": "Fixes a YAML syntax error in the Apply LabVIEW CI update workflow (apply-tooling-update.yml) that made GitHub report it as an invalid workflow file. The relocation-pointer lookup used a multi-line inline Python command that broke out of the workflow's run block, so after an install GitHub surfaced a second, failing run by filename right next to the dashboard build - which looked like a duplicate 'Add LabVIEW CI pipeline' action that had failed. The lookup is now a single-line command, so the workflow parses correctly and stays dispatch-only: it runs only when you click Update now and no longer produces a spurious failing run when you Apply the tooling to a new repository. How updates work is otherwise unchanged.",
+        "highlights": [
+          "The Apply LabVIEW CI update workflow no longer fails GitHub's workflow-file validation (the 'invalid workflow file, line 89' error).",
+          "Applying the tooling to a new repository no longer shows a second, failing run next to the dashboard build - the update workflow is dispatch-only and runs only when you click Update now.",
+          "No change to how updates work; the relocation-pointer lookup was rewritten as a single-line command so it stays inside the workflow's run block."
+        ]
+      },
+      {
+        "version": "3.4.26",
+        "date": "2026-06-18",
+        "title": "Apply to New Repo can set up one-click tooling updates",
+        "summary": "The installer can now make future tooling updates a single click. A new option - Enable one-click tooling updates, on by default - stores your install token, encrypted in your browser and saved only as the new repository's TOOLING_UPDATE_TOKEN secret, so that when you later click Update now the update workflow opens its pull request using that token. This avoids the common case where a repository does not allow GitHub Actions to open pull requests (the default), which otherwise leaves an update built and pushed but with no pull request until you open it by hand. The option adds Secrets to the permissions the pre-filled token requests; if you skip it, or your token cannot write Secrets, nothing breaks - the What's New page still offers a one-time token at update time. The token is sealed with the repository's public key before storage and is sent only to api.github.com, never to the page or to CI.",
+        "highlights": [
+          "New install option (default on): stores your token as the repository's TOOLING_UPDATE_TOKEN secret so future Update now clicks open their pull request automatically - no need to allow the Actions bot to create pull requests.",
+          "The token is sealed in your browser (libsodium) with the repository's public key and saved only as a repository secret - sent only to api.github.com, never to the page or CI.",
+          "Optional and safe to skip: the pre-filled token requests Secrets only when the option is checked, and if it is not set up the What's New page prompts for a one-time token when you update."
+        ]
+      },
       {
         "version": "3.4.25",
         "date": "2026-06-18",
@@ -1357,7 +1766,12 @@
           ".github/pages/vi-browser.html",
           ".github/pages/vi-interactive.html",
           ".github/labview/build-gallery.py",
-          ".github/labview/PrintToSingleFileHtml/"
+          ".github/labview/PrintToSingleFileHtml/",
+          ".github/workflows/vi-snapshots-json.yml",
+          ".github/workflows/build-toimages-image.yml",
+          ".github/labview/run-toimages.sh",
+          ".github/labview/build-json-worklist.sh",
+          ".github/labview/toimages/"
         ],
         "windows": [
           ".github/workflows/vi-snapshots.yml",

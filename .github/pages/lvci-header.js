@@ -75,6 +75,15 @@
       if (hm && seg && seg.indexOf('.') < 0) repo = hm[1] + '/' + seg;
     } catch (e) {}
   }
+  // A page may be ABOUT a different repository than the one whose assets serve it
+  // — the centralized "What's New" page is served from the source site but upgrades
+  // a consumer repo. cfg.brandRepo names that repo so the brand, its home link, and
+  // the Dashboard / VI Browser nav all reflect it, while `repo` (the serving origin)
+  // still drives the version + dispatch logic. Display-only: with no brandRepo every
+  // link is exactly as before.
+  var brandRepo = cfg.brandRepo || '';
+  var navBase = base;
+  if (brandRepo) { var _nb = trimSlash(pagesUrlForRepo(brandRepo)); if (_nb) navBase = _nb; }
   var ctx = cfg.context || 'page';
 
   // Canonical home of this tooling. The dashboard page assets are served by the
@@ -84,6 +93,7 @@
   // it from the same-origin catalog (and any relocation pointer it follows).
   var SOURCE_FALLBACK_REPO = 'elijah286/HAL-MAL-Application';
   var srcRepo = SOURCE_FALLBACK_REPO;
+  var srcRef = 'main';
 
   // ── Design tokens + styles (match the GitHub-style dark/light tokens the
   //    rest of the site uses, so the header blends into every page). ─────────
@@ -189,6 +199,19 @@
     '.lvci-dropdown-menu .lvci-ic{width:17px;height:17px;color:#8b949e}',
     '.lvci-dropdown-menu .lvci-sep{height:1px;background:#30363d;margin:5px 4px}',
     '@media(prefers-color-scheme:light){.lvci-dropdown-menu{background:rgba(255,255,255,.98);border-color:#d0d7de;box-shadow:0 8px 28px rgba(140,149,159,.32)}.lvci-dropdown-menu>a,.lvci-dropdown-menu>button{color:#1f2328}.lvci-dropdown-menu>a:hover,.lvci-dropdown-menu>button:hover{background:rgba(80,90,100,.08)}.lvci-dropdown-menu .lvci-ic{color:#57606a}.lvci-dropdown-menu .lvci-sep{background:#d0d7de}}',
+    // ── Share popover: copy a deep link to (or print) exactly what's shown ────
+    '.lvci-share{position:relative;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid #30363d;background:transparent;color:#8b949e;border-radius:7px;cursor:pointer}',
+    '.lvci-share svg{width:17px;height:17px;display:block}',
+    '.lvci-share:hover{background:rgba(177,186,196,.12);color:#e6edf3}',
+    '.lvci-share.open{background:rgba(177,186,196,.16);color:#e6edf3;border-color:#8b949e}',
+    '@media(prefers-color-scheme:light){.lvci-share{border-color:#d0d7de;color:#57606a}.lvci-share:hover,.lvci-share.open{background:rgba(80,90,100,.08);color:#1f2328}}',
+    '.lvci-share-pop{min-width:312px;max-width:360px;padding:12px}',
+    '.lvci-share-h{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#8b949e;margin:2px 2px 8px}',
+    '.lvci-share-url{display:block;width:100%;padding:8px 9px;border-radius:7px;border:1px solid #30363d;background:#0d1117;color:#e6edf3;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace}',
+    '.lvci-share-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}',
+    '.lvci-share-row .lvci-btn{padding:7px 11px}',
+    '.lvci-share-hint{font-size:11px;line-height:1.45;color:#8b949e;margin:9px 2px 0}',
+    '@media(prefers-color-scheme:light){.lvci-share-h,.lvci-share-hint{color:#57606a}.lvci-share-url{background:#fff;border-color:#d0d7de;color:#1f2328}}',
     // Appearance (theme) segmented control — lives in the popover and mobile menu
     '.lvci-theme{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 8px 8px 10px}',
     '.lvci-theme-lbl{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#8b949e}',
@@ -243,6 +266,9 @@
     '}',
     // Give the page a little breathing room below the sticky bar on small screens
     '@media(max-width:820px){body{overflow-x:hidden}}',
+    // Printing (Share -> Print, or the browser's own Print): drop the chrome so a
+    // printout is just the report / snapshot content, not the surrounding header.
+    '@media print{.lvci-hdr,.lvci-status,.lvci-tok,.lvci-rebuild,.lvci-menu,.lvci-dropdown-menu{display:none !important}}',
     // ── Manual appearance override (Appearance control in the menu) ───────────
     // "System" keeps the prefers-color-scheme rules above. Forcing light/dark
     // sets data-lvci-theme on <html>; these rules re-assert the matching tokens
@@ -264,6 +290,10 @@
     ':root[data-lvci-theme=light] .lvci-burger{border-color:#d0d7de}',
     ':root[data-lvci-theme=light] .lvci-more{border-color:#d0d7de;color:#57606a}',
     ':root[data-lvci-theme=light] .lvci-more:hover,:root[data-lvci-theme=light] .lvci-more.open{background:rgba(80,90,100,.08);color:#1f2328}',
+    ':root[data-lvci-theme=light] .lvci-share{border-color:#d0d7de;color:#57606a}',
+    ':root[data-lvci-theme=light] .lvci-share:hover,:root[data-lvci-theme=light] .lvci-share.open{background:rgba(80,90,100,.08);color:#1f2328}',
+    ':root[data-lvci-theme=light] .lvci-share-h,:root[data-lvci-theme=light] .lvci-share-hint{color:#57606a}',
+    ':root[data-lvci-theme=light] .lvci-share-url{background:#fff;border-color:#d0d7de;color:#1f2328}',
     ':root[data-lvci-theme=light] .lvci-dropdown-menu{background:rgba(255,255,255,.98);border-color:#d0d7de;box-shadow:0 8px 28px rgba(140,149,159,.32)}',
     ':root[data-lvci-theme=light] .lvci-dropdown-menu>a,:root[data-lvci-theme=light] .lvci-dropdown-menu>button{color:#1f2328}',
     ':root[data-lvci-theme=light] .lvci-dropdown-menu>a:hover,:root[data-lvci-theme=light] .lvci-dropdown-menu>button:hover{background:rgba(80,90,100,.08)}',
@@ -301,6 +331,10 @@
     ':root[data-lvci-theme=dark] .lvci-burger{border-color:#30363d}',
     ':root[data-lvci-theme=dark] .lvci-more{border-color:#30363d;color:#8b949e}',
     ':root[data-lvci-theme=dark] .lvci-more:hover,:root[data-lvci-theme=dark] .lvci-more.open{background:rgba(177,186,196,.12);color:#e6edf3}',
+    ':root[data-lvci-theme=dark] .lvci-share{border-color:#30363d;color:#8b949e}',
+    ':root[data-lvci-theme=dark] .lvci-share:hover,:root[data-lvci-theme=dark] .lvci-share.open{background:rgba(177,186,196,.12);color:#e6edf3}',
+    ':root[data-lvci-theme=dark] .lvci-share-h,:root[data-lvci-theme=dark] .lvci-share-hint{color:#8b949e}',
+    ':root[data-lvci-theme=dark] .lvci-share-url{background:#0d1117;border-color:#30363d;color:#e6edf3}',
     ':root[data-lvci-theme=dark] .lvci-dropdown-menu{background:rgba(22,27,34,.98);border-color:#30363d;box-shadow:0 8px 28px rgba(1,4,9,.5)}',
     ':root[data-lvci-theme=dark] .lvci-dropdown-menu>a,:root[data-lvci-theme=dark] .lvci-dropdown-menu>button{color:#e6edf3}',
     ':root[data-lvci-theme=dark] .lvci-dropdown-menu>a:hover,:root[data-lvci-theme=dark] .lvci-dropdown-menu>button:hover{background:rgba(177,186,196,.12)}',
@@ -343,6 +377,7 @@
     more: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="12" cy="19" r="1.3"/></svg>',
     integrate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>',
     configure: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1.5" y1="14" x2="6.5" y2="14"/><line x1="9.5" y1="8" x2="14.5" y2="8"/><line x1="17.5" y1="16" x2="22.5" y2="16"/></svg>',
+    vibrowser: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="M21 15l-4.5-4.5L7 19"/></svg>',
     update: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
     about: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><line x1="12" y1="16" x2="12" y2="11.5"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
     clients: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-6A3.5 3.5 0 0 0 4 18.5V20"/><circle cx="10.5" cy="8" r="3.5"/><path d="M21 20v-1.5a3.5 3.5 0 0 0-2.6-3.4"/><path d="M15.5 4.6a3.5 3.5 0 0 1 0 6.8"/></svg>',
@@ -351,7 +386,12 @@
     tests: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v6L5.4 17.5A1.5 1.5 0 0 0 6.7 20h10.6a1.5 1.5 0 0 0 1.3-2.5L14 9V3"/><line x1="7.5" y1="14" x2="16.5" y2="14"/></svg>',
     sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 1.8v2.4M12 19.8v2.4M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M1.8 12h2.4M19.8 12h2.4M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7"/></svg>',
     moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
-    system: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3.5" width="19" height="13" rx="2"/><line x1="8.5" y1="20.5" x2="15.5" y2="20.5"/><line x1="12" y1="16.5" x2="12" y2="20.5"/></svg>'
+    system: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3.5" width="19" height="13" rx="2"/><line x1="8.5" y1="20.5" x2="15.5" y2="20.5"/><line x1="12" y1="16.5" x2="12" y2="20.5"/></svg>',
+    share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>',
+    copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>',
+    external: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>',
+    printer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
   };
 
   function esc(s) {
@@ -416,8 +456,8 @@
   // ── Primary navigation (the durable site sections). Data-driven so future
   //    capabilities — Builds, Documentation, Unit Tests — are a one-line add. ─
   var NAV = [
-    { key: 'dashboard',   label: 'Dashboard',    href: base + '/' },
-    { key: 'vi-browser',  label: 'VI Browser',   href: base + '/vi-snapshots/' }
+    { key: 'dashboard',   label: 'Dashboard',    href: navBase + '/' },
+    { key: 'vi-browser',  label: 'VI Browser',   href: navBase + '/vi-snapshots/' }
     // Future (uncomment / extend as capabilities land):
     // { key: 'builds', label: 'Builds', href: base + '/builds/', soon: true },
     // { key: 'docs',   label: 'Docs',   href: base + '/docs/',   soon: true }
@@ -519,11 +559,13 @@
         { label: 'Populate history', svg: ICON.history, kind: 'runhistory' },
         { label: 'Configure Workers', svg: ICON.configure, kind: 'configure' },
         { label: 'Unit Testing', svg: ICON.tests, kind: 'unittests' },
+        { label: 'VI Browser renders', svg: ICON.vibrowser, kind: 'vibrowser' },
         { label: 'Clients', svg: ICON.clients, href: base + '/clients.html', source: true },
         { label: 'About', svg: ICON.about, href: aboutUrl(), about: true, newTab: aboutExternal() }
       ],
       'worker-manifest': [],
       'vi-browser': [
+        { label: 'VI Browser renders', svg: ICON.vibrowser, kind: 'vibrowser' },
         { label: 'Clients', svg: ICON.clients, href: base + '/clients.html', source: true },
         { label: 'About', svg: ICON.about, href: aboutUrl(), about: true, newTab: aboutExternal() }
       ],
@@ -540,6 +582,17 @@
   //    way the rest of the dashboard does (clients.html, integrate.html): a
   //    user/org pages repo (<owner>.github.io) serves at the bare host; any other
   //    repo is a project page under /<repo>/. Empty if the source is unknown. ──
+  // Derive any owner/name repo's GitHub Pages root: a user/org pages repo
+  // (<owner>.github.io) serves at the bare host; any other repo is a project page
+  // under /<name>/. Empty when the repo is unknown. (Hoisted — used by navBase.)
+  function pagesUrlForRepo(r) {
+    var p = String(r || '').split('/');
+    var owner = p[0] || '', name = p[1] || '';
+    if (!owner || !name) return '';
+    var host = owner.toLowerCase() + '.github.io';
+    return name.toLowerCase() === host ? ('https://' + host + '/')
+                                       : ('https://' + host + '/' + name + '/');
+  }
   function sourcePagesUrl() {
     var p = String(srcRepo || '').split('/');
     var owner = p[0] || '', name = p[1] || '';
@@ -580,6 +633,7 @@
     }
     var map = {
       configure: { src: 'configure.html' + (repo ? ('?repo=' + encodeURIComponent(repo)) : ''), title: 'Configure Workers' },
+      vibrowser: { src: 'configure.html' + (repo ? ('?repo=' + encodeURIComponent(repo)) : '') + '#vi-browser', title: 'VI Browser renders' },
       unittests: { src: 'unit-tests.html' + (repo ? ('?repo=' + encodeURIComponent(repo)) : ''), title: 'Unit Testing' },
       integrate: { src: 'integrate.html', title: 'Apply to New Repo' }
     };
@@ -700,7 +754,7 @@
     el.innerHTML = iconHtml(a) + esc(a.label);
     if (!a.href) {
       el.addEventListener('click', function () {
-        if (a.kind === 'configure' || a.kind === 'integrate' || a.kind === 'unittests') openPage(a.kind);
+        if (a.kind === 'configure' || a.kind === 'integrate' || a.kind === 'unittests' || a.kind === 'vibrowser') openPage(a.kind);
         else if (a.kind === 'rerun') rerun();
         else if (a.kind === 'runhistory') runHistory();
       });
@@ -804,14 +858,152 @@
   // the old always-on version pill). Used in the More popover and the mobile
   // menu; renderBadge() fills its label/tag/icon and toggles the amber "behind"
   // state. Always links to What's New (release notes / the update flow).
+  //
+  // The What's New / update flow is served from the SOURCE site so a client always
+  // gets the latest update UI regardless of the (possibly old) tooling it has
+  // installed; we pass this repo + installed version + source pointer as query
+  // params (the page reads the client's catalog cross-origin for anything missing).
+  // On the source's own dashboard (not a consumer) it stays the local page.
+  function whatsNewUrl() {
+    var parts = (srcRepo || '').split('/'), owner = parts[0], name = parts[1];
+    if (!isConsumer || !owner || !name || srcRepo.toLowerCase() === (repo || '').toLowerCase())
+      return base + '/whats-new.html';
+    return 'https://' + owner + '.github.io/' + name + '/whats-new.html'
+      + '?repo=' + encodeURIComponent(repo)
+      + (verState.v ? '&from=' + encodeURIComponent(verState.v) : '')
+      + '&src=' + encodeURIComponent(srcRepo)
+      + '&ref=' + encodeURIComponent(srcRef || 'main');
+  }
   function makeVerItem() {
     var a = document.createElement('a');
     a.className = 'lvci-ddver';
-    a.href = base + '/whats-new.html';
+    a.href = whatsNewUrl();
     a.innerHTML = '<span class="lvci-ic">' + ICON.news + '</span>'
       + '<span class="lvci-ddver-label">What\u2019s new</span>'
       + '<span class="lvci-ddver-tag"></span>';
     return a;
+  }
+
+  // Share / print helpers. Deep linking is owned by each page: it keeps its
+  // address bar pointed at the exact view shown (the dashboard's report links
+  // already carry sha/src/type; the VI Browser mirrors the open VI + snapshot/
+  // diff into the URL). The Share button just copies / opens / prints whatever
+  // the current canonical URL is. A page may override that URL via
+  // window.__lvciShareUrl() (the VI Browser builds it from its in-memory view
+  // state) and customise printing via window.__lvciPrint() (e.g. print only the
+  // embedded report iframe).
+  function shareEnabled() { return !!DOC || ctx === 'vi-browser' || ctx === 'report-viewer'; }
+  function shareWhat() { return DOC ? (DOC.label + ' report') : (ctx === 'vi-browser' ? 'view' : 'report'); }
+  function shareHint() {
+    if (ctx === 'vi-browser') return 'Opens the same VI and view (snapshot or diff) for whoever you send it to.';
+    if (DOC) return 'Opens this revision\u2019s ' + DOC.label + ' report in the dashboard.';
+    return 'Opens exactly what you\u2019re looking at now.';
+  }
+  function shareUrl() {
+    try { if (typeof window.__lvciShareUrl === 'function') { var u = window.__lvciShareUrl(); if (u) return String(u); } } catch (e) {}
+    return location.href;
+  }
+  function shareTitle() {
+    var t = (document.title || '').trim();
+    return t || ('LabVIEW CI' + (repo ? (' \u2014 ' + repo) : ''));
+  }
+  function doPrint() {
+    try { if (typeof window.__lvciPrint === 'function') { window.__lvciPrint(); return; } } catch (e) {}
+    try { window.print(); } catch (e) {}
+  }
+  // Copy via the async Clipboard API where available, else a hidden-textarea
+  // fallback (http / older browsers). Resolves to true on success.
+  function execCopy(txt) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = txt; ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed'; ta.style.top = '-1000px'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return !!ok;
+    } catch (e) { return false; }
+  }
+  function copyText(txt) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(txt).then(function () { return true; }, function () { return execCopy(txt); });
+      }
+    } catch (e) {}
+    return Promise.resolve(execCopy(txt));
+  }
+  // Compact share for the mobile menu: native share sheet where the device offers
+  // one, otherwise copy the link and confirm in the status line.
+  function shareNow() {
+    var url = shareUrl();
+    try { if (navigator.share) { navigator.share({ title: shareTitle(), url: url }).catch(function () {}); return; } } catch (e) {}
+    copyText(url).then(function (ok) { setStatus(ok ? 'Link copied to the clipboard.' : ('Copy this link: ' + esc(url)), ok ? 'ok' : null); });
+  }
+  // Desktop affordance: a share glyph in the actions cluster opening a popover
+  // with the link (pre-selected), Copy / Open / Print, and a native Share button
+  // where supported. Built only on shareable surfaces.
+  function makeSharePopover() {
+    var wrap = document.createElement('div'); wrap.className = 'lvci-dropdown';
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'lvci-share'; btn.id = 'lvci-share';
+    btn.setAttribute('aria-haspopup', 'true'); btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-label', 'Share this ' + shareWhat());
+    btn.title = 'Share \u2014 copy a link to this ' + shareWhat();
+    btn.innerHTML = ICON.share;
+    wrap.appendChild(btn);
+
+    var pop = document.createElement('div'); pop.className = 'lvci-dropdown-menu lvci-share-pop';
+    var h = document.createElement('div'); h.className = 'lvci-share-h'; h.textContent = 'Share this ' + shareWhat();
+    var input = document.createElement('input');
+    input.className = 'lvci-share-url'; input.type = 'text'; input.readOnly = true;
+    input.setAttribute('aria-label', 'Shareable link');
+    var row = document.createElement('div'); row.className = 'lvci-share-row';
+    var copyHtml = '<span class="lvci-ic">' + ICON.copy + '</span>Copy link';
+    var copyBtn = document.createElement('button'); copyBtn.type = 'button'; copyBtn.className = 'lvci-btn accent';
+    copyBtn.innerHTML = copyHtml;
+    var openBtn = document.createElement('a'); openBtn.className = 'lvci-btn'; openBtn.target = '_blank'; openBtn.rel = 'noopener';
+    openBtn.innerHTML = '<span class="lvci-ic">' + ICON.external + '</span>Open';
+    var printBtn = document.createElement('button'); printBtn.type = 'button'; printBtn.className = 'lvci-btn';
+    printBtn.innerHTML = '<span class="lvci-ic">' + ICON.printer + '</span>Print';
+    row.appendChild(copyBtn); row.appendChild(openBtn); row.appendChild(printBtn);
+    var nativeBtn = null;
+    if (navigator.share) {
+      nativeBtn = document.createElement('button'); nativeBtn.type = 'button'; nativeBtn.className = 'lvci-btn';
+      nativeBtn.innerHTML = '<span class="lvci-ic">' + ICON.share + '</span>Share\u2026';
+      row.appendChild(nativeBtn);
+    }
+    var hint = document.createElement('div'); hint.className = 'lvci-share-hint'; hint.textContent = shareHint();
+    pop.appendChild(h); pop.appendChild(input); pop.appendChild(row); pop.appendChild(hint);
+    wrap.appendChild(pop);
+
+    function refresh() { var u = shareUrl(); input.value = u; openBtn.href = u; }
+    var closeShare = function () { pop.classList.remove('open'); btn.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); };
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var open = !pop.classList.contains('open');
+      if (open) refresh();
+      pop.classList.toggle('open', open);
+      btn.classList.toggle('open', open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) { try { input.focus(); input.select(); } catch (e2) {} }
+    });
+    pop.addEventListener('click', function (e) { e.stopPropagation(); });
+    input.addEventListener('focus', function () { try { input.select(); } catch (e) {} });
+    copyBtn.addEventListener('click', function () {
+      copyText(shareUrl()).then(function (ok) {
+        copyBtn.innerHTML = '<span class="lvci-ic">' + ICON.check + '</span>' + (ok ? 'Copied!' : 'Press \u2318/Ctrl+C');
+        try { input.focus(); input.select(); } catch (e) {}
+        setTimeout(function () { copyBtn.innerHTML = copyHtml; }, 1600);
+      });
+    });
+    printBtn.addEventListener('click', function () { closeShare(); doPrint(); });
+    if (nativeBtn) nativeBtn.addEventListener('click', function () {
+      var u = shareUrl();
+      try { navigator.share({ title: shareTitle(), url: u }).catch(function () {}); } catch (e) {}
+    });
+    document.addEventListener('click', closeShare);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeShare(); });
+    return wrap;
   }
 
   // ── Build the header DOM ──────────────────────────────────────────────────
@@ -829,11 +1021,12 @@
     // product name when no repo can be derived. The whole mark links home.
     var brand = document.createElement('a');
     brand.className = 'lvci-brand';
-    brand.href = base + '/';
-    if (repo) {
-      var rname = repo.split('/').pop();
-      brand.title = repo;                                      // full owner/name on hover
-      brand.setAttribute('aria-label', 'LabVIEW CI \u2014 ' + repo);
+    brand.href = navBase + '/';
+    var displayRepo = brandRepo || repo;
+    if (displayRepo) {
+      var rname = displayRepo.split('/').pop();
+      brand.title = displayRepo;                                      // full owner/name on hover
+      brand.setAttribute('aria-label', 'LabVIEW CI \u2014 ' + displayRepo);
       brand.innerHTML = BRAND_SVG +
         '<span class="lvci-repo">' +
           '<span class="lvci-kicker">LabVIEW CI</span>' +
@@ -876,6 +1069,10 @@
     runChip.innerHTML = '<span class="lvci-run-spin" aria-hidden="true"></span><span id="lvci-runchip-txt">running</span>';
     actions.appendChild(runChip);
     buildActions().forEach(function (a) { actions.appendChild(actionEl(a, false)); });
+    // Share — copy a deep link to (or print) exactly what's shown. Present on the
+    // shareable surfaces (VI Browser snapshots/diffs + per-revision reports); the
+    // link the page keeps in its address bar is what gets copied / printed / shared.
+    if (shareEnabled()) actions.appendChild(makeSharePopover());
     // "More" popover — always present so the Appearance control is available
     // site-wide; it also hosts any context-specific secondary actions
     // (Configure Workers / Update / About on the dashboard and VI Browser).
@@ -905,7 +1102,7 @@
           el = document.createElement('button');
           el.type = 'button';
           el.addEventListener('click', function () {
-            if (a.kind === 'configure' || a.kind === 'integrate' || a.kind === 'unittests') openPage(a.kind);
+            if (a.kind === 'configure' || a.kind === 'integrate' || a.kind === 'unittests' || a.kind === 'vibrowser') openPage(a.kind);
             else if (a.kind === 'runhistory') runHistory();
             closeDD();
           });
@@ -969,6 +1166,19 @@
         if (a.about) aboutEls.push(el);
         menu.appendChild(el);
       });
+    }
+    // Share / Print (mobile) — the same shareable surfaces as the desktop popover;
+    // Share prefers the device's native share sheet, falling back to copying.
+    if (shareEnabled()) {
+      var sepSh = document.createElement('div'); sepSh.className = 'lvci-sep'; menu.appendChild(sepSh);
+      var shBtn = document.createElement('button'); shBtn.type = 'button'; shBtn.className = 'lvci-m';
+      shBtn.innerHTML = '<span class="lvci-ic">' + ICON.share + '</span>' + esc('Share this ' + shareWhat());
+      shBtn.addEventListener('click', function () { menu.classList.remove('open'); shareNow(); });
+      menu.appendChild(shBtn);
+      var prBtn = document.createElement('button'); prBtn.type = 'button'; prBtn.className = 'lvci-m';
+      prBtn.innerHTML = '<span class="lvci-ic">' + ICON.printer + '</span>Print';
+      prBtn.addEventListener('click', function () { menu.classList.remove('open'); doPrint(); });
+      menu.appendChild(prBtn);
     }
     // Version / update entry (mobile) — same single home as the dropdown.
     var sepV = document.createElement('div'); sepV.className = 'lvci-sep'; menu.appendChild(sepV);
@@ -1104,11 +1314,13 @@
         if (src) srcRepo = src;   // refine the Apply-to-New-Repo target from the live catalog
         refreshAbout();           // re-point About at the (now known) source site's faq.html
         isConsumer = !!(src && repo && src.toLowerCase() !== repo.toLowerCase());
+        renderBadge();   // isConsumer/srcRepo known -> point What's New at the source site
         if (!isConsumer) { revealClients(); return; }   // root repo: surface Clients even before a scan has published clients.json
         // Now that the deployed version + consumer status are known, check right
         // away whether a tooling upgrade is mid-flight (don't wait for the poll).
         refreshHeadCatalog().then(resolveUpgrade);
         var ref = (cat.source && cat.source.ref) || 'main';
+        srcRef = ref;
         // Follow the relocation pointer (.github/labview-ci/source.json): if the
         // tooling moved to a new official home, compare against THAT repo's latest
         // version so the "update available" dot reflects the real source. No-op when
@@ -1116,7 +1328,7 @@
         fetch('https://raw.githubusercontent.com/' + src + '/' + ref + '/.github/labview-ci/source.json', { cache: 'no-cache' })
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (p) {
-            if (p && p.repo && p.repo.toLowerCase() !== src.toLowerCase()) { src = p.repo; ref = p.ref || ref; srcRepo = src; refreshAbout(); }
+            if (p && p.repo && p.repo.toLowerCase() !== src.toLowerCase()) { src = p.repo; ref = p.ref || ref; srcRepo = src; srcRef = ref; refreshAbout(); }
             return fetch('https://raw.githubusercontent.com/' + src + '/' + ref + '/.github/labview-ci/catalog.json', { cache: 'no-cache' });
           })
           .then(function (r) { return r.ok ? r.json() : null; })
@@ -1353,16 +1565,16 @@
         // Link straight to the in-flight action; don't reopen What's New, which
         // would let you dispatch a second update on top of the running one.
         if (upUrl) { a.href = upUrl; a.target = '_blank'; a.rel = 'noopener'; }
-        else { a.href = base + '/whats-new.html'; a.removeAttribute('target'); a.removeAttribute('rel'); }
+        else { a.href = whatsNewUrl(); a.removeAttribute('target'); a.removeAttribute('rel'); }
         a.title = (upTo ? ('Updating to v' + upTo) : 'An update') + ' is in progress \u2014 click to watch the running action.';
       } else if (behind) {
-        a.href = base + '/whats-new.html'; a.removeAttribute('target'); a.removeAttribute('rel');
+        a.href = whatsNewUrl(); a.removeAttribute('target'); a.removeAttribute('rel');
         if (ic) ic.innerHTML = ICON.update;
         if (lbl) lbl.textContent = 'Update available';
         if (tag) tag.textContent = 'v' + verState.v + ' \u2192 v' + verState.to;
         a.title = 'Update available: v' + verState.v + ' \u2192 v' + verState.to;
       } else {
-        a.href = base + '/whats-new.html'; a.removeAttribute('target'); a.removeAttribute('rel');
+        a.href = whatsNewUrl(); a.removeAttribute('target'); a.removeAttribute('rel');
         if (ic) ic.innerHTML = ICON.news;
         if (lbl) lbl.textContent = 'What\u2019s new';
         if (tag) tag.textContent = verState.v ? ('v' + verState.v) : '';

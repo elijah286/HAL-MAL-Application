@@ -373,7 +373,7 @@ def main() -> None:
     (out_dir / "index.html").write_text(render(data), encoding="utf-8")
     s = data["summary"]
     print(f"unit-test report: {s['passed']}/{s['tests']} passed ({s['percent']}%) "
-          f"· {s['failed']} failed · {s['errored']} errored · {s['skipped']} skipped → {out_dir/'index.html'}")
+          f"- {s['failed']} failed - {s['errored']} errored - {s['skipped']} skipped -> {out_dir/'index.html'}")
 
 
 # ── HTML template (self-contained; chrome via lvci-header.js) ─────────────────
