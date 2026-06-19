@@ -137,7 +137,11 @@
     host.style.width = (group.rect.Width || 0) + 'px';
     host.style.height = (group.rect.Height || 0) + 'px';
 
-    // Each case gets its own absolutely-stacked layer; only one is shown.
+    // Each case gets its own absolutely-stacked layer; only one is shown. The
+    // host is NOT clipped (overflow:visible): each case image is already sized to
+    // the slot (100% x 100%), and leaving the host unclipped keeps every
+    // structure's selector tab visible — it sits just ABOVE the frame, and nested
+    // structures' tabs would otherwise be clipped by an ancestor structure.
     const caseLayers = group.cases.map((ci) => {
       const cl = el('div', 'lvr-case', host);
       paintFrame(frames, ci, cl, stageState);
@@ -188,7 +192,7 @@
       stageState.zoom = zoom;
     }
     function zoomAt(nz, ax, ay) {
-      nz = clamp(nz, 0.2, 6);
+      nz = clamp(nz, 0.04, 8);
       const r = viewport.getBoundingClientRect();
       const cx = (ax - r.left - panX) / zoom, cy = (ay - r.top - panY) / zoom;
       zoom = nz;
@@ -199,10 +203,13 @@
     viewport.addEventListener('wheel', (e) => {
       if (!(e.ctrlKey || e.metaKey)) return;
       e.preventDefault();
-      zoomAt(zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12), e.clientX, e.clientY);
+      // Smooth, proportional zoom: gentle per tick and not runaway-fast on
+      // trackpads (which emit many small wheel events).
+      const d = Math.max(-50, Math.min(50, e.deltaY));
+      zoomAt(zoom * Math.exp(-d * 0.002), e.clientX, e.clientY);
     }, { passive: false });
     viewport.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('.lvr-sel')) return;       // let selector buttons work
+      if (e.target.closest('.lvr-sel') || e.target.closest('.lvr-reset')) return;  // let chrome buttons work
       dragging = true; sx = e.clientX; sy = e.clientY; px = panX; py = panY;
       viewport.classList.add('lvr-grabbing');
       try { viewport.setPointerCapture(e.pointerId); } catch (_) {}
@@ -219,10 +226,13 @@
     stageState.reset = () => { zoom = 1; panX = 0; panY = 0; apply(); };
     stageState.fit = (w, h) => {
       const r = viewport.getBoundingClientRect();
+      if (!(r.width > 2 && r.height > 2 && w > 0 && h > 0)) return;   // viewport not laid out yet
       const pad = 24;
-      zoom = clamp(Math.min((r.width - pad) / w, (r.height - pad) / h, 1), 0.2, 1);
+      // Fit the WHOLE diagram in view: never upscale past 1:1, but allow a tiny
+      // zoom so even very large diagrams fit.
+      zoom = clamp(Math.min((r.width - pad) / w, (r.height - pad) / h, 1), 0.04, 1);
       panX = Math.max(pad / 2, (r.width - w * zoom) / 2);
-      panY = pad / 2;
+      panY = Math.max(pad / 2, (r.height - h * zoom) / 2);
       apply();
     };
     apply();
@@ -253,12 +263,27 @@
       const h = rootImg.naturalHeight || rootRect.Height || 600;
       stage.style.width = w + 'px';
       stage.style.height = h + 'px';
+      stageState.rootW = w; stageState.rootH = h;
       paintFrame(frames, rootIdx, root, stageState);
-      if (stageState.fit) stageState.fit(w, h);
+      // Fit now, and again next frame in case the viewport had not been laid out
+      // when the image decoded, so the diagram ALWAYS opens fitted in view.
+      const doFit = () => { if (stageState.fit) stageState.fit(w, h); };
+      doFit();
+      ((container.ownerDocument.defaultView) || window).requestAnimationFrame(doFit);
     };
     rootImg.src = imgSrc(frames[rootIdx]);
 
     wireStage(viewport, stage, stageState);
+
+    // "Fit" button - returns the diagram to its default fitted size & position.
+    const resetBtn = el('button', 'lvr-reset', viewport);
+    resetBtn.type = 'button';
+    resetBtn.title = 'Reset view \u2014 fit the whole diagram';
+    resetBtn.textContent = 'Fit';
+    resetBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (stageState.rootW && stageState.fit) stageState.fit(stageState.rootW, stageState.rootH);
+    });
 
     function onKey(e) {
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -274,7 +299,7 @@
         container.ownerDocument.removeEventListener('keydown', onKey);
         container.innerHTML = '';
       },
-      reset() { stageState.reset && stageState.reset(); },
+      reset() { if (stageState.rootW && stageState.fit) stageState.fit(stageState.rootW, stageState.rootH); },
     };
   }
 
@@ -294,6 +319,11 @@
 .lvr-struct{position:absolute;outline:1px dashed rgba(31,111,235,.35);outline-offset:0}
 .lvr-case{position:absolute;top:0;left:0;width:100%;height:100%}
 .lvr-case .lvr-img{width:100%;height:100%}
+.lvr-reset{position:absolute;top:10px;right:10px;z-index:6;border:1px solid #d0d7de;
+  background:rgba(255,255,255,.92);color:#1f2328;cursor:pointer;
+  font:600 12px/1 -apple-system,'Segoe UI',sans-serif;padding:6px 10px;border-radius:7px;
+  box-shadow:0 1px 3px rgba(31,35,40,.18)}
+.lvr-reset:hover{background:#eaeef2}
 .lvr-sel{position:absolute;left:0;top:-22px;display:inline-flex;align-items:center;gap:2px;
   height:20px;padding:0 3px;background:#fffbe6;border:1px solid #d9c97a;border-bottom:none;
   border-radius:5px 5px 0 0;font:600 11px/1 -apple-system,'Segoe UI',sans-serif;color:#5a4b00;
@@ -307,9 +337,9 @@
 .lvr-sel__lbl{padding:0 4px;min-width:30px;text-align:center;font-variant-numeric:tabular-nums}
 .lvr-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   color:#8b949e;font:14px -apple-system,'Segoe UI',sans-serif}
-@media (prefers-color-scheme:dark){
-  .lvr-viewport{background:#0d1117;background-image:radial-gradient(#1b2330 1px,transparent 1px)}
-}`;
+/* The diagram viewing area stays WHITE even in dark mode: LabVIEW block diagrams
+   are drawn on a white canvas, so a dark backdrop would clash with the PNGs and
+   make wires/labels hard to read. Only the page chrome around it follows the theme. */`;
     (doc.head || doc.documentElement).appendChild(s);
   }
 
