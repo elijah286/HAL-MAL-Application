@@ -22,6 +22,10 @@ on:
         description: 'Head commit SHA'
         required: false
         default: ''
+      files:
+        description: 'Optional comma/newline-separated VI/CTL paths to diff (default: all changed in the range)'
+        required: false
+        default: ''
 
 env:
   # Base NI image already includes everything VIDiff needs (CreateComparisonReport /
@@ -75,14 +79,14 @@ jobs:
             -d "{\"state\":\"pending\",\"target_url\":\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\",\"description\":\"VIDiff in progress\",\"context\":\"CI / VIDiff (windows)\"}"
 
       - name: Checkout head commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ steps.shas.outputs.head }}
           fetch-depth: 0
           path: head
 
       - name: Checkout base commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ steps.shas.outputs.base }}
           path: base
@@ -99,9 +103,16 @@ jobs:
       - name: Get list of changed VI/CTL files
         id: changed
         shell: bash
+        env:
+          INPUT_FILES: ${{ github.event.inputs.files }}
         run: |
           cd head
-          if [ -n "${{ steps.shas.outputs.base }}" ]; then
+          if [ -n "$INPUT_FILES" ]; then
+            # Targeted run (e.g. a single VI requested from the VI Browser): diff just
+            # these paths instead of the whole range. Accept comma- or newline-
+            # separated paths and keep only .vi/.ctl entries.
+            FILES=$(printf '%s' "$INPUT_FILES" | tr ',' '\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | grep -iE '\.(vi|ctl)$' || true)
+          elif [ -n "${{ steps.shas.outputs.base }}" ]; then
             FILES=$(git diff --name-only "${{ steps.shas.outputs.base }}" "${{ steps.shas.outputs.head }}" -- '*.vi' '*.ctl' | tr '\n' '\n')
           else
             FILES=$(git diff-tree --no-commit-id -r --name-only "${{ steps.shas.outputs.head }}" -- '*.vi' '*.ctl' | tr '\n' '\n')
@@ -111,7 +122,7 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -220,7 +231,7 @@ jobs:
           JSON
 
       - name: Upload VIDiff report artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: vidiff-windows-${{ steps.shas.outputs.head }}
           path: |
