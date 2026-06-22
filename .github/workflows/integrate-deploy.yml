@@ -11,7 +11,7 @@ name: Integrate Configurator — Pages
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - '.github/pages/integrate.html'
       - '.github/pages/configure.html'
