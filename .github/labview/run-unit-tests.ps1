@@ -46,6 +46,95 @@ $ProgressPreference    = 'SilentlyContinue'
 if (-not $ConfigPath) { $ConfigPath = Join-Path $WorkspaceRoot '.github\labview-ci.yml' }
 New-Item -ItemType Directory -Force -Path $ResultsDir | Out-Null
 
+# Tracks tools that were configured + attempted but could not run because the
+# selected container lacks the required tooling (e.g. the NI Unit Test Framework
+# toolkit is not installed). Serialized to <ResultsDir>\_tooling.json so
+# build-unittest-report.py can render the shared "container is missing this
+# dependency" banner on the report.
+$Script:ToolingIssues = @()
+function Add-ToolingIssue([string]$tool, [string]$name, [string]$kind, [string]$detail) {
+    $Script:ToolingIssues += [pscustomobject]@{ tool = $tool; name = $name; kind = $kind; detail = $detail }
+}
+
+# Diagnostic: show where the NI Unit Test Framework toolkit landed and what this
+# LabVIEW references. LabVIEW 2023+ loads toolkits from a VERSION-INDEPENDENT
+# add-ons folder (C:\Program Files\NI\LVAddons); the UTF MSI deploys via NI's
+# NIPaths resolver (logical path LVADDONSDIR64). This prints the add-ons folder
+# state + LabVIEW registry so a -350053 'operation could not load' is traceable
+# to whether the toolkit is actually visible to this LabVIEW.
+function Show-UtfAddonsDiag([string]$LvPath) {
+    Write-Host '===== UTF / version-independent add-ons diagnostic ====='
+    $roots = @('C:\Program Files\NI\LVAddons',
+               'C:\Program Files (x86)\NI\LVAddons',
+               'C:\Program Files\National Instruments\Shared\LabVIEW Addons')
+    foreach ($r in $roots) {
+        if (Test-Path -LiteralPath $r) {
+            Write-Host "ADDONS ROOT: $r"
+            Get-ChildItem -LiteralPath $r -Recurse -Depth 2 -ErrorAction SilentlyContinue |
+                Select-Object -First 80 | ForEach-Object { Write-Host "  $($_.FullName)" }
+        } else {
+            Write-Host "absent: $r"
+        }
+    }
+    # Dump the add-on manifests. LabVIEW 2023+ loads an LVAddon only if its
+    # lvaddoninfo.json declares compatibility with the running LabVIEW version.
+    # Compare UTF (RunUnitTests fails) against viawin (VI Analyzer, which works)
+    # to reveal the version gating that keeps UTF from loading on LabVIEW 2026.
+    foreach ($mf in @('C:\Program Files\NI\LVAddons\utf64\1\lvaddoninfo.json',
+                      'C:\Program Files\NI\LVAddons\utf32\1\lvaddoninfo.json',
+                      'C:\Program Files\NI\LVAddons\viawin\1\lvaddoninfo.json')) {
+        if (Test-Path -LiteralPath $mf) {
+            Write-Host "--- manifest: $mf ---"
+            Get-Content -LiteralPath $mf -Raw -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_ }
+        }
+    }
+    $lvRoot = if ($LvPath) { Split-Path -Parent $LvPath } else { '' }
+    if ($lvRoot -and (Test-Path -LiteralPath $lvRoot)) {
+        Write-Host "LabVIEW root: $lvRoot"
+        foreach ($sub in @('vi.lib\addons','user.lib','resource\Framework\Providers','project','vi.lib\Unit Test Framework')) {
+            $p = Join-Path $lvRoot $sub
+            if (Test-Path -LiteralPath $p) {
+                $utf = @(Get-ChildItem -LiteralPath $p -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '(?i)utf|unit.?test' })
+                Write-Host ("  {0}: {1} UTF-ish entr(ies) {2}" -f $sub, $utf.Count, (($utf | ForEach-Object { $_.Name }) -join ', '))
+            }
+        }
+    }
+    foreach ($rk in @('HKLM:\SOFTWARE\National Instruments\LabVIEW','HKLM:\SOFTWARE\WOW6432Node\National Instruments\LabVIEW')) {
+        if (Test-Path -LiteralPath $rk) {
+            Write-Host "REG $rk"
+            $props = Get-ItemProperty -LiteralPath $rk -ErrorAction SilentlyContinue
+            if ($props) { $props.PSObject.Properties | Where-Object { $_.Name -notmatch '^PS' } | ForEach-Object { Write-Host "    $($_.Name) = $($_.Value)" } }
+            Get-ChildItem -LiteralPath $rk -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "    subkey: $($_.PSChildName)" }
+        }
+    }
+    # The -350053 error names the LabVIEW CLI "operation folder" as the place with
+    # "missing or bad files". Dump it so we can see whether the RunUnitTests operation
+    # is actually present for this LabVIEW (the UTF version-independent add-on is
+    # supposed to register it); a missing/broken RunUnitTests operation here is the
+    # real cause of -350053, independent of any VIPM package.
+    Write-Host '----- LabVIEW CLI operation folders -----'
+    foreach ($op in @('C:\Program Files (x86)\National Instruments\Shared\LabVIEW CLI\Operations',
+                      'C:\Program Files\National Instruments\Shared\LabVIEW CLI\Operations')) {
+        if (Test-Path -LiteralPath $op) {
+            Write-Host "OPERATIONS ROOT: $op"
+            Get-ChildItem -LiteralPath $op -Recurse -ErrorAction SilentlyContinue |
+                Select-Object -First 200 | ForEach-Object { Write-Host "  $($_.FullName)" }
+        } else {
+            Write-Host "absent: $op"
+        }
+    }
+    # Where does the UTF add-on keep its RunUnitTests CLI operation, if anywhere?
+    foreach ($addon in @('C:\Program Files\NI\LVAddons\utf64\1','C:\Program Files\NI\LVAddons\utf32\1')) {
+        if (Test-Path -LiteralPath $addon) {
+            $hits = @(Get-ChildItem -LiteralPath $addon -Recurse -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match '(?i)run.?unit.?test|unit.?test.*\.(vi|lvclass)$|cli' })
+            Write-Host ("UTF add-on '{0}': {1} CLI/RunUnitTests-ish file(s)" -f $addon, $hits.Count)
+            $hits | Select-Object -First 50 | ForEach-Object { Write-Host "  $($_.FullName)" }
+        }
+    }
+    Write-Host '===== end diagnostic ====='
+}
+
 # -- Resolve LabVIEW / LabVIEWCLI / g-cli (mirror run-vi-analyzer.ps1) ----------
 function Resolve-LabVIEWPath([string]$PreferredPath) {
     if ($PreferredPath -and (Test-Path $PreferredPath)) { return $PreferredPath }
@@ -97,15 +186,26 @@ function Resolve-LabVIEWCLI([string]$LabVIEWExePath) {
     return $null
 }
 
+function Resolve-LabVIEWPort([string]$LabVIEWExePath) {
+    $ini = Join-Path (Split-Path -Parent $LabVIEWExePath) 'LabVIEW.ini'
+    if (Test-Path -LiteralPath $ini) {
+        $m = Select-String -LiteralPath $ini -Pattern '^server\.tcp\.port\s*=\s*(\d+)\s*$' -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($m -and $m.Matches.Count -gt 0) { return [int]$m.Matches[0].Groups[1].Value }
+    }
+    return 3363
+}
+
 $LabVIEWPath = Resolve-LabVIEWPath $LabVIEWPath
 Sync-PathFromRegistry
 $GCli        = Resolve-Cmd @('g-cli', 'g-cli.exe')
 $CliExe      = Resolve-LabVIEWCLI $LabVIEWPath
+$LabVIEWPort = Resolve-LabVIEWPort $LabVIEWPath
 
 Write-Host "=== Unit Tests (Windows) ==="
 Write-Host "  Workspace : $WorkspaceRoot"
 Write-Host "  Results   : $ResultsDir"
 Write-Host "  LabVIEW   : $LabVIEWPath  (v$LabVIEWVersion)"
+Write-Host "  VI Server : $LabVIEWPort"
 Write-Host "  LabVIEWCLI: $(if ($CliExe) { $CliExe } else { '<not found>' })"
 Write-Host "  g-cli     : $(if ($GCli) { $GCli } else { '<not found on PATH>' })"
 Write-Host "  Config    : $ConfigPath"
@@ -279,6 +379,8 @@ function Invoke-UtfTests($tool, [int]$index) {
     }
     if (-not $CliExe) { Write-Warning "  LabVIEWCLI not found; cannot run UTF."; return }
 
+    Show-UtfAddonsDiag $LabVIEWPath
+
     $tmpl = if ($tool.command) { $tool.command } else { $UTF_DEFAULT_CMD }
 
     $i = 0
@@ -291,8 +393,10 @@ function Invoke-UtfTests($tool, [int]$index) {
         Write-Host "  [utf] $cmd"
 
         $prevEAP = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+        $cliOut = ''
         try {
-            & cmd.exe /c $cmd 2>&1 | Out-Host
+            $cliOut = (& cmd.exe /c $cmd 2>&1 | Out-String)
+            Write-Host $cliOut
             Write-Host ("  [utf] exit={0}" -f $LASTEXITCODE)
         } catch {
             Write-Warning "  [utf] runner error: $($_.Exception.Message)"
@@ -300,7 +404,51 @@ function Invoke-UtfTests($tool, [int]$index) {
         $ErrorActionPreference = $prevEAP
 
         if (Test-Path -LiteralPath $out) { Write-Host "  [utf] wrote $out" }
-        else { Write-Warning "  [utf] produced no JUnit at $out (check the RunUnitTests output above; override with the tool's command: key)." }
+        else {
+            Write-Warning "  [utf] produced no JUnit at $out (check the RunUnitTests output above; override with the tool's command: key)."
+            # The LabVIEWCLI console error (e.g. -350053) is generic; the actual
+            # detail (which VI is broken / which module is missing) is written to
+            # the CLI's own session log. Echo it so failures are diagnosable.
+            $m = [regex]::Match($cliOut, '(?i)started logging in file:\s*(.+\.log)')
+            if ($m.Success) {
+                $logPath = $m.Groups[1].Value.Trim()
+                Write-Host "  [utf] --- LabVIEW CLI session log ($logPath) ---"
+                if (Test-Path -LiteralPath $logPath) {
+                    Get-Content -LiteralPath $logPath | ForEach-Object { Write-Host "  [utf-log] $_" }
+                } else {
+                    Write-Host "  [utf] (session log not found on disk)"
+                }
+                Write-Host "  [utf] --- end LabVIEW CLI session log ---"
+            } else {
+                Write-Host "  [utf] (no CLI session-log path found in output)"
+            }
+            # DIAGNOSTIC PROBE: re-run the SAME operation WITHOUT -JUnitReportPath. If it
+            # then loads/succeeds, the -350053 is specific to the JUnit-report step (its
+            # VIs), not the operation; if it still fails, the RunUnitTests operation cannot
+            # load at all in this LabVIEW. Output-only; does not affect the report.
+            $cmdNoJUnit = $tmpl.Replace('{cli}', $CliExe).Replace('{lv}', $LabVIEWPath).Replace('{proj}', $proj).Replace('{out}', $out).Replace('{ver}', $LabVIEWVersion)
+            $cmdNoJUnit = $cmdNoJUnit -replace '\s*-JUnitReportPath\s+"[^"]*"', ''
+            Write-Host "  [utf][diag] retry WITHOUT -JUnitReportPath:"
+            Write-Host "  [utf][diag] $cmdNoJUnit"
+            $prevEAP2 = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+            try {
+                $diagOut = (& cmd.exe /c $cmdNoJUnit 2>&1 | Out-String)
+                Write-Host $diagOut
+                Write-Host ("  [utf][diag] exit={0}" -f $LASTEXITCODE)
+            } catch { Write-Warning "  [utf][diag] runner error: $($_.Exception.Message)" }
+            $ErrorActionPreference = $prevEAP2
+            # Record that UTF could not run, so the report shows the shared
+            # "missing container tooling" banner. -350053 / "missing or bad files"
+            # / "required modules or toolkits" => the UTF toolkit is absent.
+            if (-not ($Script:ToolingIssues | Where-Object { $_.tool -eq 'utf' })) {
+                $missingTooling = ($cliOut -match '350053' -or $cliOut -match 'missing or bad files' -or $cliOut -match 'required modules or toolkits')
+                if ($missingTooling) {
+                    Add-ToolingIssue 'utf' 'NI Unit Test Framework' 'missing-tooling' 'The NI Unit Test Framework toolkit is not installed in this container, so the LabVIEW CLI RunUnitTests operation could not load (error -350053).'
+                } else {
+                    Add-ToolingIssue 'utf' 'NI Unit Test Framework' 'error' 'The RunUnitTests operation produced no JUnit output.'
+                }
+            }
+        }
         $i++
     }
 }
@@ -324,6 +472,12 @@ foreach ($t in $tools) {
 
 $xml = @(Get-ChildItem -Path $ResultsDir -Filter '*.xml' -File -ErrorAction SilentlyContinue)
 Write-Host "=== Unit Tests finished: wrote $($xml.Count) JUnit file(s) to $ResultsDir ==="
+# Persist any "container is missing this tooling" findings for the report builder.
+$toolingPath = Join-Path $ResultsDir '_tooling.json'
+if ($Script:ToolingIssues.Count -gt 0) {
+    (@{ missing = @($Script:ToolingIssues) } | ConvertTo-Json -Depth 5) | Set-Content -LiteralPath $toolingPath -Encoding ascii
+    Write-Host "Recorded $($Script:ToolingIssues.Count) missing-tooling finding(s) -> $toolingPath"
+}
 # Always exit 0: pass/fail is derived from the JUnit content by
 # build-unittest-report.py (its summary.json drives the commit status), exactly
 # like the Mass Compile report. A runner-level error surfaces as a missing/empty

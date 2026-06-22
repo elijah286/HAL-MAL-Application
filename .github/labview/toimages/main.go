@@ -101,14 +101,9 @@ func run() error {
 	}
 
 	// A non-empty worklist that rendered nothing is a systemic failure (e.g. VI
-	// scripting / headless capture is broken), not just a few bad VIs. The process
-	// still exits 0 so the consumer workflow keeps its graceful "0 JSON => stay on
-	// the 1.0 view" path and can still deploy any partial successes, but make the
-	// failure loud so it is not mistaken for "ran clean".
+	// scripting / headless capture is broken), not just a few bad VIs.
 	if ok == 0 && len(items) > 0 {
-		slog.Error("rendered 0 of the worklist: the in-place 2.0 view will have nothing to show; "+
-			"check the per-VI errors above (is VI scripting active? is headless diagram capture working?)",
-			"failed", failed, "total", len(items))
+		return fmt.Errorf("rendered 0 of %d worklist item(s); check the per-VI errors above", len(items))
 	}
 
 	slog.Info("toimages runner done", "ok", ok, "failed", failed, "total", len(items))
@@ -132,9 +127,11 @@ func convertOne(lvctlPath, viPath string, timeout time.Duration) (string, error)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		// lvctl writes the real LabVIEW / VI-Server error to stderr; surface a
-		// trimmed tail so a per-VI failure is diagnosable in the batch log.
-		return "", fmt.Errorf("lvctl toimages failed: %w; stderr: %s", err, lastLines(stderr.String(), 3))
+		// lvctl writes the real LabVIEW / VI-Server error to stderr. Surface a
+		// panic-aware summary: when lvctl crashed, start the excerpt at the
+		// "panic:" header (the actual cause) instead of the truncated tail, so a
+		// per-VI failure is diagnosable in the batch log.
+		return "", fmt.Errorf("lvctl toimages failed: %w; stderr: %s", err, diagStderr(stderr.String()))
 	}
 
 	out := bytes.TrimSpace(stdout.Bytes())
@@ -164,6 +161,30 @@ func lastLines(s string, n int) string {
 		lines = lines[len(lines)-n:]
 	}
 	return strings.Join(lines, "; ")
+}
+
+// diagStderr trims lvctl's stderr for the single-line batch log. If lvctl
+// crashed, a Go runtime traceback ends with the bottom frames (main.main),
+// so lastLines would hide the "panic:" header that names the real cause.
+// When a panic header is present, the excerpt starts there; the result is
+// capped so one bad VI cannot flood the batch log.
+func diagStderr(s string) string {
+	s = strings.TrimSpace(s)
+	if i := strings.Index(s, "panic:"); i >= 0 {
+		s = s[i:]
+	}
+	var lines []string
+	for _, ln := range strings.Split(s, "\n") {
+		if ln = strings.TrimSpace(ln); ln != "" {
+			lines = append(lines, ln)
+		}
+	}
+	out := strings.Join(lines, " | ")
+	const max = 4000
+	if len(out) > max {
+		out = out[:max] + " ...(truncated)"
+	}
+	return out
 }
 
 type item struct{ blob, rel string }

@@ -12,7 +12,7 @@ name: Build VI Browser 2.0 render image
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - '.github/labview/toimages/**'
       - '.github/workflows/build-toimages-image.yml'
