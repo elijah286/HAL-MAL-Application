@@ -60,8 +60,13 @@
     .badge.rec{color:#fff;background:var(--accent);border-color:transparent}
     .badge.adv{color:#9a6700;border-color:#9a6700}
     .badge.planned{color:#bf8700;border-color:#bf8700}
+    .badge.exp{color:#cf222e;border-color:#cf222e}
     .badge.os{color:var(--fg-muted)}
     .note{font-size:.78em;color:var(--fg-muted);margin-top:6px}
+    .exp-details{margin-top:8px;font-size:.84em;color:var(--fg-muted)}
+    .exp-details summary{cursor:pointer;color:var(--link);user-select:none}
+    .exp-details ul{margin:7px 0 0;padding-left:18px}
+    .exp-details li{margin:0 0 5px}
     .tabs{display:flex;gap:4px;margin-bottom:0}
     .tab{padding:7px 14px;border:1px solid var(--border);border-bottom:none;border-radius:8px 8px 0 0;
          background:var(--chip);cursor:pointer;font-size:.85em;color:var(--fg-muted)}
@@ -143,7 +148,6 @@
         <h1>Apply to a new repository</h1>
         <p class="sub">Add these LabVIEW CI capabilities to another repository. Pick what you want — get an install command and a ready-to-commit bundle.</p>
       </div>
-      <a class="back" id="backLink" href="./">&larr; Back to dashboard</a>
     </header>
 
     <section>
@@ -170,16 +174,16 @@
           <label class="fl">Operating systems</label>
           <div class="os-toggle" id="osToggle">
             <label class="toggle"><input type="checkbox" value="windows" checked> Windows</label>
-            <label class="toggle"><input type="checkbox" value="linux"> Linux</label>
+            <label class="toggle"><input type="checkbox" value="linux" checked> Linux</label>
           </div>
-          <p class="hint" style="margin-top:6px">Linux container jobs run on the NI base image and are <strong>experimental</strong> &mdash; opt in only if you want them. Windows is the supported default.</p>
+          <p class="hint" style="margin-top:6px">Linux container jobs run on the NI base image by default. The Linux Beta/VIPM lane is experimental and opt-in below.</p>
         </div>
       </div>
     </section>
 
     <section>
       <h2>2. Capabilities</h2>
-      <p class="hint">All available capabilities are selected by default &mdash; uncheck any you don't want. Dependencies are added automatically.</p>
+      <p class="hint">Stable and advanced capabilities are selected by default. Experimental features are off unless you opt in. Dependencies are added automatically.</p>
       <div class="caps" id="caps"></div>
     </section>
 
@@ -292,7 +296,7 @@
   <script>
   (() => {
     "use strict";
-    const SOURCE_FALLBACK = { repo: "elijah286/LabVIEW-CI-with-Containers", ref: "main" };
+    const SOURCE_FALLBACK = { repo: "elijah286/HAL-MAL-Application", ref: "main" };
     const TEXT_EXTS = new Set([".yml",".yaml",".ps1",".sh",".py",".html",".htm",".md",".json",".xml",".viancfg",".txt",".cfg",".css",".js",".svg"]);
     const NO_SUB_PREFIX = ".github/labview-ci/";
 
@@ -301,7 +305,8 @@
     let relocated = null;         // {from,to} when the tooling has moved to a new official home
     let activeTab = "bash";
     const selected = new Set();   // capability ids the user checked
-    const osSel = new Set(["windows"]);   // Windows is the supported default; Linux container jobs are experimental (NI base image) and opt-in via Configure Workers
+    const EXPERIMENTAL_STATUS = "experimental";
+    const osSel = new Set(["windows", "linux"]);   // Stable Windows + Linux jobs are selected by default; experimental lanes stay opt-in below.
     let priorState = null;        // set by detectPriorInstall when re-installing over an existing setup
     let insRunId = 0;             // bumped per install run; guards the async publish-wait UI against a newer install
 
@@ -388,17 +393,22 @@
       sel.setAttribute("aria-disabled", "true");
     }
 
+    function isPlanned(cap) { return cap && cap.status === "planned"; }
+    function isExperimental(cap) { return cap && cap.status === EXPERIMENTAL_STATUS; }
+    function experimentalCaps() { return (catalog.capabilities || []).filter(c => isExperimental(c)); }
+
     function renderCaps() {
       const host = $("caps");
       host.innerHTML = "";
-      catalog.capabilities.forEach(cap => {
-        const planned = cap.status === "planned";
+      selected.clear();
+      catalog.capabilities.filter(cap => !isExperimental(cap)).forEach(cap => {
+        const planned = isPlanned(cap);
         const wrap = document.createElement("label");
         wrap.className = "cap" + (planned ? " disabled" : "");
         const cb = document.createElement("input");
         cb.type = "checkbox"; cb.value = cap.id; cb.disabled = planned;
-        // All available capabilities are on by default (everything except the
-        // ones still marked "Coming soon", which can't be installed yet).
+        // Available non-experimental capabilities are on by default. Experimental
+        // ones are grouped in a separate opt-in card below.
         cb.checked = !planned;
         if (cb.checked) selected.add(cap.id);
         cb.addEventListener("change", () => {
@@ -411,6 +421,7 @@
         if (cap.recommended) badges.push('<span class="badge rec">Recommended</span>');
         if (cap.status === "advanced") badges.push('<span class="badge adv">Advanced</span>');
         if (planned) badges.push('<span class="badge planned">Coming soon</span>');
+        if (isExperimental(cap)) badges.push('<span class="badge exp">Experimental</span>');
         const osBadges = (cap.supportsOs || []).map(o => `<span class="badge os">${o}</span>`).join("");
         body.innerHTML =
           `<div class="name">${cap.name}${badges.join("")}</div>` +
@@ -421,6 +432,34 @@
         wrap.dataset.id = cap.id;
         host.appendChild(wrap);
       });
+      renderExperimentalCard(host);
+    }
+
+    function renderExperimentalCard(host) {
+      const caps = experimentalCaps().filter(cap => !isPlanned(cap));
+      if (!caps.length) return;
+      const wrap = document.createElement("div");
+      wrap.className = "cap";
+      wrap.dataset.id = "__experimental";
+      const cb = document.createElement("input");
+      cb.type = "checkbox"; cb.value = "__experimental"; cb.checked = false;
+      cb.addEventListener("change", () => {
+        caps.forEach(cap => {
+          if (cb.checked) { selected.add(cap.id); addRequires(cap.id); }
+          else selected.delete(cap.id);
+        });
+        syncChecks(); update();
+      });
+      const body = document.createElement("div");
+      const included = caps.map(cap =>
+        `<li><strong>${esc(cap.name)}</strong> - ${esc(cap.summary)}</li>`
+      ).join("");
+      body.innerHTML =
+        `<div class="name">Experimental features<span class="badge exp">Experimental</span></div>` +
+        `<div class="desc">Opt into features still being proven before they become part of the default installer path.</div>` +
+        `<details class="exp-details"><summary>Included experimental features</summary><ul>${included}</ul></details>`;
+      wrap.appendChild(cb); wrap.appendChild(body);
+      host.appendChild(wrap);
     }
 
     function byId(id) { return catalog.capabilities.find(c => c.id === id); }
@@ -433,7 +472,13 @@
     function syncChecks() {
       document.querySelectorAll(".cap").forEach(el => {
         const cb = el.querySelector("input");
-        if (cb && !cb.disabled) cb.checked = selected.has(el.dataset.id);
+        if (!cb || cb.disabled) return;
+        if (el.dataset.id === "__experimental") {
+          const ids = experimentalCaps().filter(cap => !isPlanned(cap)).map(cap => cap.id);
+          cb.checked = ids.length > 0 && ids.every(id => selected.has(id));
+        } else {
+          cb.checked = selected.has(el.dataset.id);
+        }
       });
     }
 
@@ -1027,8 +1072,27 @@
       if (r.ok) { const j = await r.json(); path = j.path || "README.md"; existing = b64decodeText(j.content || ""); }
       else if (r.status !== 404) await ghJson(r);
       if (existing != null) {
-        if (/labview-ci:dashboard/.test(existing)) return null;
-        return { path, content: insertReadmeSection(existing, repo), isText: true };
+        const hasMarker = /labview-ci:dashboard/.test(existing);
+        const isMarkdown = /\.(md|markdown|mdown|mkdn?)$/i.test(path);
+        // Already linked from a real MARKDOWN README -> nothing to do (the badge
+        // and links render there, so a re-install must not duplicate the section).
+        if (hasMarker && isMarkdown) return null;
+        if (isMarkdown) {
+          return { path, content: insertReadmeSection(existing, repo), isText: true };
+        }
+        // Markdown badges/links only render in a MARKDOWN README. If the repo's
+        // README is plain text (e.g. ReadMe.txt) or another non-markdown format,
+        // editing it in place would show the raw "[![badge](...)](...)" source
+        // instead of a link, so create a proper README.md (GitHub ranks it ABOVE
+        // README.txt for rendering) with the dashboard section on top and the
+        // original prose kept below, and leave the existing file untouched. If an
+        // earlier install already spliced the (non-rendering) section into this
+        // plain-text file, drop that copy first so it isn't duplicated.
+        let prose = existing;
+        if (hasMarker) prose = prose.split(readmeSection(repo)).join("").replace(/\n{3,}/g, "\n\n");
+        prose = prose.replace(/^\s+/, "").replace(/\s+$/, "");
+        const body = `# ${repo.split("/")[1]}\n\n` + readmeSection(repo) + (prose ? "\n" + prose : "");
+        return { path: "README.md", content: body, isText: true };
       }
       return { path: "README.md", content: `# ${repo.split("/")[1]}\n\n` + readmeSection(repo), isText: true };
     }
@@ -1203,6 +1267,29 @@
       return false;
     }
 
+    // Kick off the worker container IMAGE build the moment the install merges, when
+    // the custom-image capability is installed. Every Windows container activity (mass
+    // compile, VI Analyzer, VIDiff, snapshots, unit tests, Antidoc) runs inside
+    // ghcr.io/<owner>/<repo>-labview, which is built with the baked dependency VIPC and
+    // does NOT exist until this build runs — so a fresh install must build it once.
+    // build-labview-image.yml never auto-runs on the install merge (it only adds
+    // .github/** files, which its push trigger excludes), so we dispatch it here.
+    // Best-effort: a 404 means the workflow isn't on the default branch yet (rare), so
+    // we briefly retry, then fall back silently (the dashboard's Build worker image
+    // button and the first CI run's wait-for-image both cover it).
+    async function buildWorkerImageNow(repo, branch) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const r = await gh(`/repos/${repo}/actions/workflows/build-labview-image.yml/dispatches`,
+            { method: "POST", body: { ref: branch } });
+          if (r.ok || r.status === 204) return true;
+          if (r.status !== 404) return false;   // real error (e.g. perms) — stop retrying
+        } catch (_) { /* transient network — retry */ }
+        await sleep(3000);                       // workflow not on the default branch yet
+      }
+      return false;
+    }
+
     // Semver-ish compare (major.minor.patch). Returns >0 when a>b, <0 when a<b.
     function cmpVerStr(a, b) {
       const pa = String(a || "").split(".").map(Number), pb = String(b || "").split(".").map(Number);
@@ -1316,6 +1403,7 @@
       if (setup.readme) done.push(`Added a CI dashboard badge &amp; link to your README (in the pull request).`);
       if (setup.workflowPerms === "done") done.push(`Set <strong>Workflow permissions</strong> to read &amp; write.`);
       if (setup.toolingToken === "done") done.push(`Saved a one-time <strong>update token</strong> &mdash; future <em>Update now</em> clicks open their pull request automatically.`);
+      if (setup.buildImage && autoMerge) done.push(`Started building your <strong>worker container image</strong> &mdash; the container CI activities (mass compile, VI Analyzer, VIDiff, snapshots, unit tests, Antidoc) become available once it finishes (a few minutes). Running one before then waits for the build rather than failing.`);
       // Show the dashboard URL as PLAIN TEXT until Pages is confirmed serving it
       // (revealLiveLink upgrades #insLiveUrl to a real link) so we never present a
       // link that 404s. When Pages already existed it's almost certainly live, so
@@ -1331,6 +1419,7 @@
       if (setup.workflowPerms !== "done") steps.push(`Set <strong>Workflow permissions</strong> to <em>Read and write</em> (<a href="https://github.com/${esc(repo)}/settings/actions" target="_blank" rel="noopener">Settings &rsaquo; Actions &rsaquo; General</a>).`);
       if (setup.hasDashboard && setup.pages !== "done" && setup.pages !== "exists")
         steps.push(`After you merge, the dashboard build publishes the <code class="inl">gh-pages</code> branch \u2014 then enable <strong>GitHub Pages</strong> from it (<a href="https://github.com/${esc(repo)}/settings/pages" target="_blank" rel="noopener">Settings &rsaquo; Pages</a>). No CI run is required.`);
+      if (setup.buildImage && !autoMerge) steps.push(`After you merge, build the <strong>worker container image</strong> once \u2014 run <strong>Build LabVIEW CI Image</strong> (<a href="https://github.com/${esc(repo)}/actions" target="_blank" rel="noopener">Actions</a>) or use <strong>&#9881; Configure Workers</strong>. The container CI activities (mass compile, VI Analyzer, VIDiff, snapshots, unit tests, Antidoc) run inside it.`);
       const nextEl = $("insNext");
       if (nextEl) { nextEl.innerHTML = steps.map(s => `<li>${s}</li>`).join(""); nextEl.style.display = ""; }
 
@@ -1366,6 +1455,10 @@
           return;
         }
         const nx = $("insNext"); if (nx) nx.style.display = "none";
+
+        // Build the worker container image now so the container CI activities have an
+        // image to run in (it never builds itself on the install merge). Best-effort.
+        if (setup.buildImage) buildWorkerImageNow(repo, setup.branch);
 
         const mergedDashboard = setup.hasDashboard && !!setup.branch;
         if (!mergedDashboard) {
@@ -1678,6 +1771,11 @@
         // part of this install (its publish workflow is in the resolved set).
         setup.hasDashboard = [...paths].some(p => p.endsWith("dashboard-pages.yml"));
 
+        // The custom worker container image (ghcr.io/<owner>/<repo>-labview) is what
+        // every Windows container activity runs in, and it does NOT exist until it is
+        // built — so a fresh install must build it once. Remember whether to do that.
+        setup.buildImage = activities.includes("custom-image") && osList.includes("windows");
+
         if ($("optReadme") && $("optReadme").checked && setup.hasDashboard) {
           setInsStatus("Preparing the README link&hellip;", null);
           try { const rf = await buildReadmeFile(repo); if (rf) { files.push(rf); setup.readme = true; } }
@@ -1690,6 +1788,18 @@
         const branch = meta && meta.default_branch;
         if (!branch) throw new Error("Your repository has no commits yet. Push an initial commit (e.g. a README) first, then install.");
         setup.branch = branch;   // remembered so we can dispatch the dashboard build right after an auto-merge
+        // The workflow push triggers are vendored with a static `branches: [main]`
+        // filter, which YAML can't express as the repo's default branch. Rewrite it
+        // to the target repo's actual default branch so push-to-default CI fires on
+        // repos whose default branch isn't "main" (e.g. "master"). main-default
+        // repos keep the original text untouched.
+        if (branch && branch !== "main") {
+          for (const f of files) {
+            if (f && f.isText && typeof f.content === "string" && f.path && f.path.indexOf(".github/workflows/") === 0) {
+              f.content = f.content.split("branches: [main]").join("branches: [" + branch + "]");
+            }
+          }
+        }
         setup.private = !!(meta && meta.private);   // private repos can't publish Pages on a free plan
         const headRef = await ghWrite(`/repos/${repo}/git/ref/heads/${encodeURIComponent(branch)}`, null, "read the default branch");
         const headSha = headRef.object.sha;
