@@ -1,0 +1,238 @@
+{
+  "schema": 1,
+  "repo": "elijah286/HAL-MAL-Application",
+  "sha": "eea0c5026c0680c3316822388a1c530d9c58f829",
+  "revisions": [
+    {
+      "sha": "eea0c5026c0680c3316822388a1c530d9c58f829",
+      "short": "eea0c50",
+      "message": "Add LabVIEW CI pipeline",
+      "author": "Elijah Kerry",
+      "date": "2026-06-22T22:39:12Z"
+    },
+    {
+      "sha": "381ae01f8944516255d403a27df05958dbce76d0",
+      "short": "381ae01",
+      "message": "Add LabVIEW CI pipeline",
+      "author": "Elijah Kerry",
+      "date": "2026-06-19T14:34:25Z"
+    },
+    {
+      "sha": "3f28ac1943995ca34f85591781caceb59987e75d",
+      "short": "3f28ac1",
+      "message": "Add LabVIEW CI pipeline",
+      "author": "Elijah Kerry",
+      "date": "2026-06-18T19:39:34Z"
+    },
+    {
+      "sha": "bb2c28156dccc4ba4d3c2a50124d5628139404d1",
+      "short": "bb2c281",
+      "message": "Add LabVIEW CI pipeline",
+      "author": "Elijah Kerry",
+      "date": "2026-06-18T19:38:31Z"
+    },
+    {
+      "sha": "ad16fab06b891fb5b48b864e7a87545060a0b58f",
+      "short": "ad16fab",
+      "message": "Add LabVIEW CI pipeline",
+      "author": "Elijah Kerry",
+      "date": "2026-06-18T16:40:01Z"
+    },
+    {
+      "sha": "988175c38abe1c5a6b118be57ed93a6d72a2c9c4",
+      "short": "988175c",
+      "message": "Add LabVIEW CI pipeline",
+      "author": "Elijah Kerry",
+      "date": "2026-06-18T15:41:06Z"
+    },
+    {
+      "sha": "5da954697767f4817ed14346262429effdeebca9",
+      "short": "5da9546",
+      "message": "minimal changes",
+      "author": "elijahkerry",
+      "date": "2018-04-11T03:29:14Z"
+    },
+    {
+      "sha": "30c11f13a08fe23751e897076f5b39b3c0dfc1e1",
+      "short": "30c11f1",
+      "message": "major improvements",
+      "author": "elijahkerry",
+      "date": "2018-03-20T05:34:15Z"
+    },
+    {
+      "sha": "a22a7005d6d68c18f8c104fd9a1fc135e01d363e",
+      "short": "a22a700",
+      "message": "works with hw config and step config",
+      "author": "elijahkerry",
+      "date": "2018-03-07T05:22:05Z"
+    },
+    {
+      "sha": "d1ad8cafaa26682e0e9eb1768627e9b2044f16ac",
+      "short": "d1ad8ca",
+      "message": "about to refactor load",
+      "author": "elijahkerry",
+      "date": "2018-03-05T03:19:29Z"
+    },
+    {
+      "sha": "b529ecd7e621dad9f1e0e55f53d8bde789204f9c",
+      "short": "b529ecd",
+      "message": "Moving from SVN",
+      "author": "elijah286",
+      "date": "2016-07-25T02:17:38Z"
+    }
+  ],
+  "config": {
+    "use": "",
+    "actions": {},
+    "vipc": []
+  },
+  "vipc": [
+    {
+      "path": "github/labview/vipm/ci-tooling.vipc",
+      "configured": false,
+      "packages": [],
+      "error": "[Errno 2] No such file or directory: 'github/labview/vipm/ci-tooling.vipc'"
+    },
+    {
+      "path": "vipc",
+      "configured": false,
+      "packages": [],
+      "error": "[Errno 2] No such file or directory: 'vipc'"
+    }
+  ],
+  "nipm": [
+    {
+      "name": "LabVIEW",
+      "source": "NI Package Manager",
+      "labview": true,
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "details": "LabVIEW runtime and development packages from the NI feeds."
+    },
+    {
+      "name": "VI Analyzer support",
+      "source": "NI Package Manager",
+      "packages": {
+        "windows": [
+          "ni-viawin-labview-support"
+        ],
+        "linux": [
+          "ni-vialin-labview-support"
+        ]
+      },
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "details": "NI VI Analyzer support package used by the analyzer runners."
+    },
+    {
+      "name": "NI Unit Test Framework",
+      "source": "NI Package Manager",
+      "packages": {
+        "windows": [
+          "ni-utf-labview-support"
+        ]
+      },
+      "platforms": [
+        "windows"
+      ],
+      "details": "NI UTF support package used by the Windows unit-test runner."
+    },
+    {
+      "name": "VI Package Manager",
+      "source": "NI Package Manager",
+      "packages": {
+        "windows": [
+          "ni-vipm"
+        ],
+        "linux": [
+          "ni-vipm"
+        ]
+      },
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "details": "NI-published VIPM package that enables VIPC application during worker builds."
+    }
+  ],
+  "system": [
+    {
+      "name": "VI Browser 2.0 toimages runner",
+      "source": "Repository Go code",
+      "path": ".github/labview/toimages/main.go",
+      "details": "Batch runner compiled from repo Go source; Linux uses the toimages GHCR image and Windows builds runner.exe in the workflow.",
+      "platforms": {
+        "windows": {
+          "present": false,
+          "label": ""
+        },
+        "linux": {
+          "present": true,
+          "label": "toimages image"
+        }
+      }
+    },
+    {
+      "name": "lvctl render engine",
+      "source": "Repository Go code + embedded VIs",
+      "path": ".github/labview/toimages/_ni/labview/lvctl",
+      "details": "Renderer used by VI Browser 2.0 to drive LabVIEW and emit position-aware frame JSON.",
+      "platforms": {
+        "windows": {
+          "present": false,
+          "label": ""
+        },
+        "linux": {
+          "present": true,
+          "label": "toimages image"
+        }
+      }
+    }
+  ],
+  "columns": [
+    {
+      "key": "windows",
+      "label": "Windows",
+      "platform": "windows",
+      "defaultTag": "latest",
+      "tag": "latest",
+      "ready": false,
+      "packages": [],
+      "nipkg_ready": false,
+      "nipkg_packages": [],
+      "labview_version": "",
+      "version": "latest"
+    },
+    {
+      "key": "linux",
+      "label": "Linux",
+      "platform": "linux",
+      "tag": "base",
+      "ready": true,
+      "packages": [],
+      "version": "pending",
+      "unsupported": true,
+      "nipkg_ready": true,
+      "nipkg_packages": [],
+      "nipkg_version": "linux-c6484cf4d66a",
+      "labview_version": "2026"
+    },
+    {
+      "key": "linuxBeta",
+      "label": "Linux Beta",
+      "platform": "linux-beta",
+      "tag": "latest",
+      "defaultTag": "latest",
+      "ready": false,
+      "packages": [],
+      "nipkg_ready": false,
+      "nipkg_packages": [],
+      "labview_version": "",
+      "version": "latest"
+    }
+  ]
+}

@@ -51,11 +51,11 @@
              display:flex;flex-direction:column;overflow:hidden}
     #sidebar-header{padding:12px 14px;border-bottom:1px solid var(--border)}
     #sidebar-header h1{font-size:1em;color:var(--fg);margin-bottom:8px}
-    #back-to-dashboard{display:inline-flex;align-items:center;gap:5px;margin-bottom:8px;
-                       font-size:.78em;color:var(--link);text-decoration:none}
-    #back-to-dashboard:hover{text-decoration:underline}
     #commit-select{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--border);
                    border-radius:6px;padding:5px 8px;font-size:.8em}
+    /* When moved into the shared header context bar, the revision selector is inline
+       (not full-width) and sits beside a "Revision" label styled by the header CSS. */
+    .lvci-ctxbar #commit-select{width:auto;max-width:46vw;min-width:170px;margin:0}
     #search{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--border);
             border-radius:6px;padding:5px 8px;font-size:.8em;margin-top:6px}
     #vi-list{flex:1;overflow-y:auto;padding:4px 0}
@@ -92,7 +92,7 @@
     .changed-toggle .count{color:var(--fg-muted);font-weight:600}
 
     /* ── Main panel ── */
-    #main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+    #main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
     #toolbar{padding:8px 14px;border-bottom:1px solid var(--border);background:var(--sidebar);
              font-size:.82em;color:var(--fg-muted);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
     #vi-title{font-weight:600;color:var(--fg)}
@@ -125,6 +125,16 @@
     #pane-toggle button.active{background:var(--link);color:#fff}
     #pane-toggle button:disabled{opacity:.4;cursor:default}
     #pane-toggle .sep{width:1px;background:var(--border)}
+    /* Linux / Windows platform sub-switch (2.0 in-place view; shown when a Windows render exists) */
+    #vb2-plat-toggle{display:none;align-items:center;border:1px solid var(--border);border-radius:7px;
+                 overflow:hidden;font-size:.92em}
+    #vb2-plat-toggle.show{display:inline-flex}
+    #vb2-plat-toggle button{border:none;background:var(--bg);color:var(--fg-muted);cursor:pointer;
+                        padding:3px 11px;font:inherit;font-weight:600}
+    #vb2-plat-toggle button:hover:not(.active):not(:disabled){background:var(--sidebar-hover);color:var(--fg)}
+    #vb2-plat-toggle button.active{background:var(--link);color:#fff}
+    #vb2-plat-toggle button:disabled{opacity:.4;cursor:default}
+    #vb2-plat-toggle .sep{width:1px;background:var(--border)}
     #viewer-mode-note{display:none;color:var(--fg-muted);font-size:.82em;font-style:italic}
     #viewer-mode-note.show{display:inline}
     #viewer{flex:1;overflow:hidden;position:relative}
@@ -147,13 +157,48 @@
     #empty{flex:1;display:flex;align-items:center;justify-content:center;
            flex-direction:column;color:var(--fg-muted);gap:10px}
     #empty svg{opacity:.3}
+    /* Unified Explorer: a per-revision report (Mass Compile, VI Analyzer, Unit
+       Tests, Antidoc) framed IN this pane when picked from the Activity switcher.
+       The report is per-revision, not per-VI, so the VI tree + viewer are hidden
+       and the framed report fills the pane (solo). */
+    #lens-frame{flex:1;width:100%;border:none;background:var(--viewer-bg);display:none}
+    #lens-bar{display:none;padding:8px 14px;border-bottom:1px solid var(--border);
+              background:var(--sidebar);font-size:.82em;color:var(--fg-muted);
+              align-items:center;gap:10px;flex-wrap:wrap}
+    #lens-bar #lens-title{font-weight:600;color:var(--fg)}
+    #lens-bar a{color:var(--link);cursor:pointer;text-decoration:none}
+    #lens-bar a:hover{text-decoration:underline}
+    #lens-bar #lens-back{font-weight:600}
+    #lens-bar #lens-open{margin-left:auto}
+    #lens-loading{display:none;position:absolute;inset:0;z-index:4;align-items:center;
+                  justify-content:center;gap:10px;background:var(--viewer-bg);
+                  color:var(--fg-muted);font-size:.85em}
+    #lens-loading.show{display:flex}
+    body.lens-report #sidebar,
+    body.lens-report #toolbar,
+    body.lens-report #empty,
+    body.lens-report #viewer{display:none}
+    body.lens-report #lens-bar{display:flex}
+    body.lens-report #lens-frame{display:block}
+    @media (max-width:720px){
+      body{flex-direction:column;height:100dvh;overflow:hidden}
+      #sidebar{width:100%;min-width:0;max-height:42dvh;border-right:0;border-bottom:1px solid var(--border)}
+      #sidebar-header{padding:10px 12px}
+      #vi-list{min-height:120px}
+      .lvci-ctxbar #commit-select{max-width:100%;min-width:0;width:100%}
+      #main{min-height:0;min-width:0}
+      #toolbar,#lens-bar{padding:8px 10px;gap:8px}
+      #viewer-toggle-label{flex-basis:100%}
+      #viewer-hint,#lens-bar #lens-open{margin-left:0}
+      #viewer{min-height:220px}
+      #vi-diffrun{padding:18px 14px}
+    }
   </style>
 </head>
 <body>
 
 <div id="sidebar">
   <div id="sidebar-header">
-    <a id="back-to-dashboard" href="../" title="Back to the CI Dashboard">&larr; CI Dashboard</a>
     <h1>VI Browser</h1>
     <select id="commit-select"><option value="">Loading commits…</option></select>
     <input id="search" type="search" placeholder="Filter VIs…">
@@ -183,6 +228,11 @@
       <button type="button" data-pane="fp" title="Front panel — the VI's user interface">Front&nbsp;Panel</button>
       <span class="sep"></span>
       <button type="button" data-pane="bd" title="Block diagram — the VI's code; Case/Event structures navigate in place">Block&nbsp;Diagram</button>
+    </span>
+    <span id="vb2-plat-toggle" title="Show the 2.0 render from the Linux or the Windows container">
+      <button type="button" data-plat2="linux" title="Linux container render">Linux</button>
+      <span class="sep"></span>
+      <button type="button" data-plat2="windows" title="Windows container render">Windows</button>
     </span>
     <span id="viewer-mode-note"></span>
     <span id="vi-title">Select a VI from the sidebar</span>
@@ -257,6 +307,14 @@
     </div>
     <div id="viewer-loading"><span class="spinner"></span><span>Rendering…</span></div>
   </div>
+  <!-- Unified Explorer: a per-revision report (Activity lens) framed in this pane. -->
+  <div id="lens-bar">
+    <a id="lens-back" href="#" title="Back to the VI tree">&#8249;&nbsp;VIs</a>
+    <span id="lens-title"></span>
+    <a id="lens-open" href="#" target="_blank" rel="noopener">Open full report &#8599;</a>
+  </div>
+  <iframe id="lens-frame" title="CI report"></iframe>
+  <div id="lens-loading"><span class="spinner"></span><span>Loading report&hellip;</span></div>
 </div>
 
 <script src="vi-render.js"></script>
@@ -309,9 +367,21 @@ let vb2Frames = null;            // frames of the current in-place render (so th
 // header's Share button — always point at the exact view on screen.
 let openViRel = null;            // vi_rel of the open VI (null = nothing open)
 let openView = 'snapshot';       // 'snapshot' | 'diff'
+// Unified Explorer: which Activity "lens" fills the main pane. 'snapshots' is the
+// native VI tree + snapshot/diff view; a *-report value frames that per-revision
+// report (Mass Compile, VI Analyzer, Unit Tests, Antidoc) in place, tree hidden.
+let curLens = 'snapshots';
 const INIT_VI = new URLSearchParams(location.search).get('vi') || '';
 const INIT_VIEW = (new URLSearchParams(location.search).get('view') === 'diff') ? 'diff' : 'snapshot';
+const INIT_LENS = new URLSearchParams(location.search).get('lens') || '';
 let json2Set = null;             // blobs that have a 2.0 JSON (from json-blobs.json); drives the live "2.0" glyph
+// VI Browser 2.0 render platform: 'linux' (default, the original) or 'windows'.
+// A preference, restored from ?plat2=. The selected platform is authoritative:
+// if its JSON is missing, the viewer shows the 2.0 empty panel for that platform
+// instead of silently falling back to the other renderer.
+let vb2Plat = (new URLSearchParams(location.search).get('plat2') === 'windows') ? 'windows' : 'linux';
+let json2WinSet = null;          // blobs that ALSO have a Windows 2.0 render (json-blobs.windows.json); null = none published
+let vb2DidWinRestore = false;    // one-shot: honor a ?plat2=windows deep link once the Windows index loads
 
 const ICON = {
   chevron: '<svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor"><path d="M6 4l4 4-4 4z"/></svg>',
@@ -421,12 +491,17 @@ async function loadCommits() {
     opt.textContent = `${c.short} — ${(c.message || '').slice(0, 40)}`;
     sel.appendChild(opt);
   }
-  sel.addEventListener('change', () => { openViRel = null; openView = 'snapshot'; syncUrl(); syncViewerToggle(); loadManifest(sel.value); });
+  sel.addEventListener('change', () => { if (curLens !== 'snapshots') exitReportLens(true); openViRel = null; openView = 'snapshot'; syncUrl(); syncViewerToggle(); loadManifest(sel.value); });
   const initSha = new URLSearchParams(window.location.search).get('sha');
   const startSha = (initSha && commitList.find(c => c.sha === initSha)) ? initSha : commitList[0].sha;
   sel.value = startSha;
+  if (sel._lvciSync) sel._lvciSync();   // refresh the context-bar steppers once the options are populated
   await loadManifest(startSha);
   restoreOpenFromUrl();   // open the VI + view a shared link points at (runs once)
+  // A shared link can also point at a per-revision report lens (?lens=…); frame it.
+  if (INIT_LENS && INIT_LENS !== 'snapshots') {
+    try { if (window.lvciRenderLens(INIT_LENS, startSha)) { const ls = document.querySelector('.lvci-lens-ctx select'); if (ls) ls.value = INIT_LENS; } } catch (e) {}
+  }
 }
 
 // Fetch (and cache) the manifest for any commit — used both for the active view and
@@ -675,7 +750,21 @@ async function loadJson2Index() {
     const arr = await fetchJson(BASE + 'json-blobs.json');
     if (Array.isArray(arr)) json2Set = new Set(arr.map(b => String(b).toLowerCase()));
   } catch (e) { /* no index yet (repo unprovisioned / first run) */ }
+  try {
+    const win = await fetchJson(BASE + 'json-blobs.windows.json');
+    if (Array.isArray(win)) json2WinSet = new Set(win.map(b => String(b).toLowerCase()));
+  } catch (e) { /* no Windows index published yet — the 2.0 view stays Linux-only */ }
   decorate2();
+  syncVb2PlatToggle();
+  // One-shot: if a shared ?plat2=windows link landed before the Windows index was
+  // known and the open VI does have a Windows render, upgrade it to the Windows view.
+  if (!vb2DidWinRestore && json2WinSet) {
+    vb2DidWinRestore = true;
+    if (vb2Plat === 'windows' && viewerMode === '2' && currentSnapshot && !currentDiffVi
+        && vb2WinAvail(vb2BlobOf(currentSnapshot.html))) {
+      openSnapshot(currentSnapshot.html, currentSnapshot.title);
+    }
+  }
 }
 function startJson2Poll() {
   if (json2Poll) return;
@@ -697,6 +786,13 @@ function setViewerLoading(on) {
 // flat-HTML iframe + enhanceSnapshot (unchanged behaviour). The JSON is content-
 // addressed next to the .html (by-blob/<ab>/<blob>.json), so a VI auto-upgrades to
 // the in-place view the moment its frames JSON is rendered — no gallery changes.
+// The 2.0 frames JSON sits beside the snapshot HTML, content-addressed by git blob.
+// Linux renders are <blob>.json; Windows renders are <blob>.windows.json.
+function vb2BlobOf(url) { const m = String(url || '').match(/([0-9a-f]{40})\.html$/i); return m ? m[1].toLowerCase() : ''; }
+function vb2WinAvail(blob) { return !!(json2WinSet && blob && json2WinSet.has(blob)); }
+function vb2EffPlat(_htmlUrl) { return vb2Plat === 'windows' ? 'windows' : 'linux'; }
+function vb2JsonUrl(htmlUrl) { return htmlUrl.replace(/\.html$/i, vb2EffPlat(htmlUrl) === 'windows' ? '.windows.json' : '.json'); }
+
 let lvController = null;
 function openSnapshot(htmlUrl, title) {
   // 1.0 (classic): always the flat-HTML iframe + enhanceSnapshot stepper view.
@@ -704,7 +800,7 @@ function openSnapshot(htmlUrl, title) {
   // 2.0 (in-place): prefer the position-aware frames JSON; gracefully fall back to
   // the classic view when this VI has no frames JSON yet (e.g. before the backend
   // that emits <blob>.json has rendered it).
-  const jsonUrl = htmlUrl.replace(/\.html$/i, '.json');
+  const jsonUrl = vb2JsonUrl(htmlUrl);
   setViewerLoading(true);
   fetch(jsonUrl, { cache: 'no-store' })
     .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
@@ -736,6 +832,7 @@ function showInPlace(frames, htmlUrl, title) {
   try { if (window.__lvciVB2 && window.__lvciVB2.cancel) window.__lvciVB2.cancel(); } catch (e) {}
   vb2Frames = frames;
   syncPaneToggle();        // reveal the Front Panel / Block Diagram switch for this VI
+  syncVb2PlatToggle();     // reveal the Linux / Windows switch when a Windows render exists
   renderActivePane();      // paint the active pane (front panel or block-diagram tree)
   setViewerLoading(false);
 }
@@ -771,6 +868,30 @@ function hidePaneToggle() {
   if (wrap) wrap.classList.remove('show');
 }
 
+// Linux / Windows platform sub-switch for the 2.0 view. It stays available even
+// when one platform has not rendered this VI yet; selecting the missing side opens
+// the 2.0 empty panel with a prompt to queue that platform's render.
+function syncVb2PlatToggle() {
+  const wrap = document.getElementById('vb2-plat-toggle');
+  if (!wrap) return;
+  if (viewerMode !== '2' || !currentSnapshot || currentDiffVi) { wrap.classList.remove('show'); return; }
+  wrap.classList.add('show');
+  const blob = currentSnapshot ? vb2BlobOf(currentSnapshot.html) : '';
+  const winOk = vb2WinAvail(blob);
+  const winBtn = wrap.querySelector('button[data-plat2="windows"]');
+  if (winBtn) {
+    winBtn.disabled = false;
+    winBtn.title = winOk ? 'Windows container render' : 'No Windows 2.0 render yet - click to queue it';
+  }
+  const linBtn = wrap.querySelector('button[data-plat2="linux"]');
+  if (linBtn) linBtn.disabled = false;
+  wrap.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.plat2 === vb2Plat));
+}
+function hideVb2PlatToggle() {
+  const wrap = document.getElementById('vb2-plat-toggle');
+  if (wrap) wrap.classList.remove('show');
+}
+
 function showNeedsToken(htmlUrl, title) {
   // 2.0 empty state: this VI has no frames JSON yet (no render exists, run in
   // progress, or the run failed). The 2.0 controller below reflects the real state.
@@ -789,10 +910,12 @@ function showNeedsToken(htmlUrl, title) {
   const nt = document.getElementById('vi-needtoken'); if (nt) nt.style.display = 'block';
   const drn = document.getElementById('vi-diffrun'); if (drn) drn.style.display = 'none'; hideRegenLink();
   hidePaneToggle();
+  try { window.__lvciVB2Context = { platform: vb2Plat, sha: (document.getElementById('commit-select') || {}).value || '', vi: openViRel || '' }; } catch (e) {}
+  syncVb2PlatToggle();
   setViewerLoading(false);
   // Let the 2.0 controller pick the right panel (no render yet / running /
   // no-frames / failed). It owns the repo + run-status + dispatch logic.
-  try { if (window.__lvciVB2 && window.__lvciVB2.resolve) window.__lvciVB2.resolve(title); } catch (e) {}
+  try { if (window.__lvciVB2 && window.__lvciVB2.resolve) window.__lvciVB2.resolve(title, window.__lvciVB2Context); } catch (e) {}
 }
 
 function showInFrame(url, title) {
@@ -803,6 +926,7 @@ function showInFrame(url, title) {
   const drf = document.getElementById('vi-diffrun'); if (drf) drf.style.display = 'none';
   hideRegenLink();
   hidePaneToggle();
+  hideVb2PlatToggle();
   try { if (window.__lvciVB2 && window.__lvciVB2.cancel) window.__lvciVB2.cancel(); } catch (e) {}
   if (lvController) { try { lvController.destroy(); } catch (e) {} lvController = null; }
   const frameEl = document.getElementById('vi-frame');
@@ -1292,6 +1416,7 @@ function showDiffRun(viRel, type, mode) {
   try { if (window.__lvciVB2 && window.__lvciVB2.cancel) window.__lvciVB2.cancel(); } catch (e) {}
   hideRegenLink();
   hidePaneToggle();
+  hideVb2PlatToggle();
   document.getElementById('empty').style.display = 'none';
   document.getElementById('viewer').style.display = 'block';
   const hint = document.getElementById('viewer-hint'); if (hint) hint.style.display = 'none';
@@ -1424,8 +1549,10 @@ function buildShareUrl() {
   }
   if (viewerMode === '2') p.set('viewer', '2');
   if (vb2Pane === 'bd') p.set('pane', 'bd');
+  if (vb2Plat === 'windows') p.set('plat2', 'windows');
   if (diffPlatform === 'linux') p.set('plat', 'linux');
   if (changedOnly) p.set('changed', '1');
+  if (curLens && curLens !== 'snapshots') p.set('lens', curLens);
   const qs = p.toString();
   return location.origin + location.pathname + (qs ? ('?' + qs) : '');
 }
@@ -1464,13 +1591,87 @@ function restoreOpenFromUrl() {
   try { row.scrollIntoView({ block: 'center' }); } catch (e) {}
 }
 
+// ── Unified Explorer: per-revision report lenses ─────────────────────────────
+// The shared header's Activity switcher calls window.lvciRenderLens(key, sha) when
+// the user picks a lens. 'snapshots' (or anything not a report) returns to the
+// native VI view; a *-report key frames that revision's report IN this pane — the
+// tree is hidden because these reports are per-revision, not per-VI. Returning
+// true tells the header we handled it in place (no navigation away). The header
+// only asks for reports it has already confirmed exist for this revision.
+const LENS_REPORTS = {
+  'masscompile-report': { prefix: 'masscompile', label: 'Mass Compile' },
+  'vi-analyzer-report': { prefix: 'vi-analyzer', label: 'VI Analyzer' },
+  'unit-tests-report':  { prefix: 'unit-tests',  label: 'Unit Tests' },
+  'antidoc-report':     { prefix: 'antidoc',     label: 'Antidoc' },
+};
+function activeSha() {
+  const sel = document.getElementById('commit-select');
+  return (sel && sel.value) || new URLSearchParams(location.search).get('sha') || '';
+}
+function enterReportLens(key, sha) {
+  const info = LENS_REPORTS[key];
+  if (!info) return false;
+  if (!/^[0-9a-f]{7,40}$/i.test(sha)) return false;       // first-party paths only
+  const rel  = '../' + info.prefix + '/' + sha + '/index.html';
+  const bare = BASE + rel;
+  // "Open full report" -> the framed report viewer (its own chrome: Regenerate /
+  // Re-run, raw report, the revision + activity pickers) -- the same page the
+  // dashboard badges open. src stays RELATIVE + same-origin (report-viewer
+  // validates it the same way) so the link can only ever load first-party content.
+  const viewer = BASE + '../report/index.html?type=' + encodeURIComponent(key)
+    + '&sha=' + encodeURIComponent(sha)
+    + '&src=' + encodeURIComponent(rel)
+    + '&title=' + encodeURIComponent(info.label + ' \u00b7 ' + sha.slice(0, 7));
+  const frame = document.getElementById('lens-frame');
+  if (!frame) return false;
+  const title = document.getElementById('lens-title');
+  const open  = document.getElementById('lens-open');
+  const loading = document.getElementById('lens-loading');
+  if (title) title.textContent = info.label + ' \u00b7 ' + sha.slice(0, 7);
+  if (open)  open.href = viewer;
+  if (loading) loading.classList.add('show');
+  frame.title = info.label + ' report';
+  frame.onload = function () { if (loading) loading.classList.remove('show'); };
+  frame.src = bare;
+  document.body.classList.add('lens-report');
+  curLens = key;
+  syncUrl();
+  return true;
+}
+function exitReportLens(skipUrl) {
+  if (curLens === 'snapshots') return;
+  curLens = 'snapshots';
+  const frame = document.getElementById('lens-frame');
+  if (frame) { frame.onload = null; frame.removeAttribute('src'); }
+  const loading = document.getElementById('lens-loading');
+  if (loading) loading.classList.remove('show');
+  document.body.classList.remove('lens-report');
+  if (!skipUrl) syncUrl();
+}
+window.lvciRenderLens = function (key, sha) {
+  if (!key || key === 'snapshots' || !LENS_REPORTS[key]) { exitReportLens(); return true; }
+  return enterReportLens(key, sha || activeSha());
+};
+// "‹ VIs" in the lens bar returns to the VI tree. Route through the Activity
+// picker (so the dropdown + header state follow) and fall back to a direct exit.
+(function () {
+  const back = document.getElementById('lens-back');
+  if (!back) return;
+  back.addEventListener('click', function (e) {
+    e.preventDefault();
+    const s = document.querySelector('.lvci-lens-ctx select');
+    if (s) { s.value = 'snapshots'; s.dispatchEvent(new Event('change')); }
+    else { exitReportLens(); }
+  });
+})();
+
 // The shared header reads these optional hooks: __lvciShareUrl for the canonical
 // link to copy / share, __lvciPrint to print just the open snapshot/diff (its
 // iframe is same-origin, so we can print only its content — not the chrome).
 window.__lvciShareUrl = function () { return buildShareUrl(); };
 window.__lvciPrint = function () {
   try {
-    const frame = document.getElementById('vi-frame');
+    const frame = (curLens !== 'snapshots') ? document.getElementById('lens-frame') : document.getElementById('vi-frame');
     if (frame && frame.style.display !== 'none' && frame.contentWindow) {
       frame.contentWindow.focus();
       frame.contentWindow.print();
@@ -1587,6 +1788,18 @@ document.querySelectorAll('#pane-toggle button').forEach(btn => {
   });
 });
 
+// Linux / Windows 2.0 platform sub-toggle: switch the render source and re-open the
+// current VI in the chosen platform. The choice sticks across VIs; a VI with no
+// Windows render quietly stays on Linux (the switch only shows when one exists).
+document.querySelectorAll('#vb2-plat-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.dataset.plat2 === vb2Plat) return;
+    vb2Plat = btn.dataset.plat2;
+    syncUrl();
+    if (currentSnapshot && !currentDiffVi) openSnapshot(currentSnapshot.html, currentSnapshot.title);
+  });
+});
+
 loadCommits().catch(err => {
   document.getElementById('vi-list').innerHTML =
     `<div style="padding:16px;color:var(--error);font-size:.8em">Error loading gallery:<br>${err.message}</div>`;
@@ -1595,6 +1808,43 @@ loadCommits().catch(err => {
 // Light up the "2.0" availability glyphs and keep them current as renders publish.
 loadJson2Index();
 startJson2Poll();
+
+// Persistent revision context: move the commit selector into the shared header
+// context bar (#lvci-ctxbar) so "which revision" sits in the same place as on the
+// report pages, instead of in this page's sidebar. Moving the element keeps its
+// options + change handler intact. No-ops where there is no header (e.g. the
+// embedded snapshot viewer), leaving the selector in the sidebar.
+function lvciPlaceRevInContextBar() {
+  var bar = document.getElementById('lvci-ctxbar');
+  var sel = document.getElementById('commit-select');
+  if (!bar || !sel || bar.contains(sel)) return;
+  var wrap = document.createElement('div'); wrap.className = 'lvci-rev lvci-rev-ctx';
+  var lbl = document.createElement('span'); lbl.className = 'lvci-revlbl'; lbl.textContent = 'Revision';
+  // Previous / next steppers walk to the newer / older revision, matching the
+  // report context bar. The commit list is newest-first, so the left chevron
+  // (lower index) is the newer revision and the right chevron is the older one.
+  var prev = document.createElement('button'); prev.type = 'button'; prev.className = 'lvci-rev-step';
+  prev.title = 'Newer revision'; prev.setAttribute('aria-label', 'Newer revision'); prev.innerHTML = '\u2039';
+  var next = document.createElement('button'); next.type = 'button'; next.className = 'lvci-rev-step';
+  next.title = 'Older revision'; next.setAttribute('aria-label', 'Older revision'); next.innerHTML = '\u203a';
+  function syncSteps() {
+    prev.disabled = sel.selectedIndex <= 0;
+    next.disabled = sel.selectedIndex >= sel.options.length - 1;
+  }
+  function step(d) {
+    var i = sel.selectedIndex + d;
+    if (i >= 0 && i < sel.options.length) { sel.selectedIndex = i; sel.dispatchEvent(new Event('change')); }
+  }
+  prev.addEventListener('click', function () { step(-1); });
+  next.addEventListener('click', function () { step(1); });
+  sel.addEventListener('change', syncSteps);
+  sel._lvciSync = syncSteps;
+  wrap.appendChild(lbl); wrap.appendChild(prev); wrap.appendChild(sel); wrap.appendChild(next);
+  bar.appendChild(wrap);
+  syncSteps();
+}
+if (window.lvciHeaderReady) lvciPlaceRevInContextBar();
+else document.addEventListener('lvci:ready', lvciPlaceRevInContextBar);
 </script>
 <script>
 /* VI Browser 2.0 empty-state controller. Self-contained.
@@ -1610,7 +1860,8 @@ startJson2Poll();
   "use strict";
   var $ = function (id) { return document.getElementById(id); };
   var DISPATCH_KEY = "lvci_dispatch_token";
-  var JSON_WF = "vi-snapshots-json.yml";
+  function vb2Workflow(platform) { return platform === "windows" ? "vi-snapshots-json-windows.yml" : "vi-snapshots-json.yml"; }
+  function platformLabel(platform) { return platform === "windows" ? "Windows" : "Linux"; }
 
   function detectRepo() {
     var m = String(location.hostname).match(/^([^.]+)\.github\.io$/i);
@@ -1658,13 +1909,16 @@ startJson2Poll();
     return "https://github.com/settings/personal-access-tokens/new?name=" + encodeURIComponent("LabVIEW CI dispatch") + "&description=" + encodeURIComponent("Dispatch CI runs for " + repo) + "&target_name=" + encodeURIComponent(repo.split("/")[0]) + "&actions=write";
   }
   function buildWfUrl() { return "https://github.com/" + esc(repo) + "/actions/workflows/build-toimages-image.yml"; }
+  function defaultBranch(token) {
+    return gh("/repos/" + repo, token).then(ghJson).then(function (d) { return (d && d.default_branch) || "main"; }).catch(function () { return "main"; });
+  }
 
   // ---- VI Browser 2.0 viewer state ----------------------------------------
   // The viewer calls vb2Resolve() when 2.0 is selected but a VI has no frames JSON.
   // Reflect the real state in #nt-state: no render yet (run prompt) / run in
   // progress / run finished but no frames for this VI / run failed. The run button
   // dispatches the snapshot-to-JSON workflow with the dispatch token (Actions:write).
-  var vb2Timer = null, _vb2Title = "this VI", _vb2ViewLink = "";
+  var vb2Timer = null, _vb2Title = "this VI", _vb2ViewLink = "", _vb2Ctx = { platform: "linux", sha: "", vi: "" };
   function vb2Cancel() { if (vb2Timer) { clearTimeout(vb2Timer); vb2Timer = null; } }
   function vb2Hide() { ["nt-tokp", "nt-state"].forEach(function (id) { var e = $(id); if (e) e.style.display = "none"; }); }
   function vb2State(icon, titleHtml, msgHtml, actionsHtml) {
@@ -1681,33 +1935,36 @@ startJson2Poll();
   // repo's own image and offer a one-click run of the snapshot-to-JSON workflow.
   function vb2ShowRunPrompt() {
     vb2Cancel();
-    var run = "<button id='nt-state-rerun' type='button' style='padding:7px 15px;border:0;border-radius:7px;background:#2da44e;color:#fff;font-weight:600;cursor:pointer'>\u26a1 Run the 2.0 snapshot</button>";
-    vb2State("\uD83C\uDFA8", "No VI Browser 2.0 render yet",
-      "2.0 renders from this repository\u2019s own image \u2014 no render token or private image needed. The first time, run <a href='" + buildWfUrl() + "' target='_blank' rel='noopener' style='color:var(--link);font-weight:600'>Build VI Browser 2.0 render image \u2197</a> once so the image exists, then run the snapshot below to render <strong>" + esc(_vb2Title) + "</strong>.",
+    var wf = vb2Workflow(_vb2Ctx.platform), plat = platformLabel(_vb2Ctx.platform);
+    var run = "<button id='nt-state-rerun' type='button' style='padding:7px 15px;border:0;border-radius:7px;background:#2da44e;color:#fff;font-weight:600;cursor:pointer'>\u26a1 Run the " + esc(plat) + " 2.0 snapshot</button>";
+    vb2State("\uD83C\uDFA8", "No " + esc(plat) + " VI Browser 2.0 render yet",
+      "Queue <code>" + esc(wf) + "</code> for the current revision to start the " + esc(plat) + " container and generate the 2.0 frames for <strong>" + esc(_vb2Title) + "</strong>. Linux renders use this repository\u2019s 2.0 image; if it has not been built yet, run <a href='" + buildWfUrl() + "' target='_blank' rel='noopener' style='color:var(--link);font-weight:600'>Build VI Browser 2.0 render image \u2197</a> first.",
       run);
   }
-  function vb2Resolve(title) {
+  function vb2Resolve(title, ctx) {
     vb2Cancel();
     _vb2Title = title || "this VI";
+    _vb2Ctx = Object.assign({ platform: "linux", sha: "", vi: "" }, ctx || {});
     var dt = lsGet(DISPATCH_KEY);
     // No repo detected, or no Actions token yet -> show the run prompt (clicking Run
     // collects the dispatch token). With a token, reflect the latest run's state.
     if (!repo || !dt) { vb2ShowRunPrompt(); return; }
     var spin = "<span class='spinner'></span>";
-    vb2State(spin, "Checking the 2.0 render\u2026", "Looking up the latest <code>" + esc(JSON_WF) + "</code> run\u2026", "");
-    gh("/repos/" + repo + "/actions/workflows/" + encodeURIComponent(JSON_WF) + "/runs?per_page=1", dt).then(ghJson)
+    var wf = vb2Workflow(_vb2Ctx.platform), plat = platformLabel(_vb2Ctx.platform);
+    vb2State(spin, "Checking the " + esc(plat) + " 2.0 render\u2026", "Looking up the latest <code>" + esc(wf) + "</code> run\u2026", "");
+    gh("/repos/" + repo + "/actions/workflows/" + encodeURIComponent(wf) + "/runs?per_page=1", dt).then(ghJson)
       .then(function (d) {
         var run = (d && d.workflow_runs || [])[0];
         if (!run) { vb2ShowRunPrompt(); return; }
         _vb2ViewLink = "<a href='" + esc(run.html_url) + "' target='_blank' rel='noopener' style='color:var(--link);font-weight:600'>View run \u2197</a>";
-        var rerun = "<button id='nt-state-rerun' type='button' style='padding:7px 15px;border:0;border-radius:7px;background:#2da44e;color:#fff;font-weight:600;cursor:pointer'>\u26a1 Re-run the 2.0 snapshot</button>";
+        var rerun = "<button id='nt-state-rerun' type='button' style='padding:7px 15px;border:0;border-radius:7px;background:#2da44e;color:#fff;font-weight:600;cursor:pointer'>\u26a1 Re-run the " + esc(plat) + " 2.0 snapshot</button>";
         if (run.status !== "completed") {
-          vb2State(spin, "Rendering the 2.0 snapshot\u2026", "The <code>" + esc(JSON_WF) + "</code> run is <strong>" + esc(run.status) + "</strong>. When it finishes, reload this page to load the new frames.", _vb2ViewLink);
-          vb2Timer = setTimeout(function () { vb2Resolve(_vb2Title); }, 12000);
+          vb2State(spin, "Rendering the " + esc(plat) + " 2.0 snapshot\u2026", "The <code>" + esc(wf) + "</code> run is <strong>" + esc(run.status) + "</strong>. When it finishes, reload this page to load the new frames.", _vb2ViewLink);
+          vb2Timer = setTimeout(function () { vb2Resolve(_vb2Title, _vb2Ctx); }, 12000);
         } else if (run.conclusion === "success") {
-          vb2State("\u26a0\uFE0F", "No 2.0 render for " + esc(_vb2Title), "The last run finished, but produced no position-aware frames for this item. A VI appears in 2.0 only when the render image emits frames for it \u2014 controls (<code>.ctl</code>) and VIs without a block diagram are skipped, and a VI the renderer cannot open is skipped too. If you expected a render here, open the run to check the logs.", _vb2ViewLink + " " + rerun);
+          vb2State("\u26a0\uFE0F", "No " + esc(plat) + " 2.0 render for " + esc(_vb2Title), "The last run finished, but produced no position-aware frames for this item. A VI appears in 2.0 only when the render image emits frames for it \u2014 controls (<code>.ctl</code>) and VIs without a block diagram are skipped, and a VI the renderer cannot open is skipped too. If you expected a render here, open the run to check the logs.", _vb2ViewLink + " " + rerun);
         } else {
-          vb2State("\u274C", "The 2.0 snapshot run did not succeed", "The last <code>" + esc(JSON_WF) + "</code> run ended with <strong>" + esc(run.conclusion || "no result") + "</strong>, so no frames were produced. Open the run to see why, then re-run.", _vb2ViewLink + " " + rerun);
+          vb2State("\u274C", "The " + esc(plat) + " 2.0 snapshot run did not succeed", "The last <code>" + esc(wf) + "</code> run ended with <strong>" + esc(run.conclusion || "no result") + "</strong>, so no frames were produced. Open the run to see why, then re-run.", _vb2ViewLink + " " + rerun);
         }
       })
       .catch(function () { vb2ShowRunPrompt(); });
@@ -1716,13 +1973,15 @@ startJson2Poll();
     var sEl = $("nt-state-status"), dt = lsGet(DISPATCH_KEY);
     if (!dt) { needToken(DISPATCH_KEY, "Running the snapshot needs a token with <strong>Actions: write</strong> on <code>" + esc(repo) + "</code>. <a href='" + dispatchTokenUrl() + "' target='_blank' rel='noopener' style='color:var(--link)'>Create one \u2197</a>, paste it below, and Save.", vb2Rerun); return; }
     var b = $("nt-state-rerun"); if (b) b.disabled = true;
-    setStatus(sEl, "Queuing the 2.0 snapshot run\u2026", null);
-    gh("/repos/" + repo + "/actions/workflows/" + encodeURIComponent(JSON_WF) + "/dispatches", dt, { method: "POST", body: { ref: "main", inputs: { mode: "backfill" } } })
+    var wf = vb2Workflow(_vb2Ctx.platform), plat = platformLabel(_vb2Ctx.platform), targetSha = _vb2Ctx.sha || "";
+    var inputs = _vb2Ctx.platform === "windows" ? { vi: _vb2Ctx.vi || "", target_sha: targetSha } : { mode: "head", target_sha: targetSha };
+    setStatus(sEl, "Queuing the " + esc(plat) + " 2.0 snapshot run\u2026", null);
+    defaultBranch(dt).then(function (ref) { return gh("/repos/" + repo + "/actions/workflows/" + encodeURIComponent(wf) + "/dispatches", dt, { method: "POST", body: { ref: ref, inputs: inputs } }); })
       .then(function (r) {
         if (b) b.disabled = false;
-        if (r.status === 204) { vb2State("<span class='spinner'></span>", "Rendering the 2.0 snapshot\u2026", "Queued the run. When it finishes, reload this page to load the new frames.", _vb2ViewLink); vb2Timer = setTimeout(function () { vb2Resolve(_vb2Title); }, 12000); return; }
+        if (r.status === 204) { vb2State("<span class='spinner'></span>", "Rendering the " + esc(plat) + " 2.0 snapshot\u2026", "Queued the current revision. When it finishes, reload this page to load the new frames.", _vb2ViewLink); vb2Timer = setTimeout(function () { vb2Resolve(_vb2Title, _vb2Ctx); }, 12000); return; }
         if (r.status === 401 || r.status === 403) { try { localStorage.removeItem(DISPATCH_KEY); } catch (ig) {} setStatus(sEl, "Dispatch token " + (r.status === 401 ? "rejected (401)" : "lacks Actions: write") + " \u2014 click Re-run to enter a new one.", "err"); return; }
-        setStatus(sEl, r.status === 404 ? "Token cannot see <code>" + esc(repo) + "</code>, or the workflow is not on the default branch." : "Dispatch failed (HTTP " + r.status + ").", "err");
+        return r.json().catch(function () { return {}; }).then(function (j) { setStatus(sEl, r.status === 404 ? "Token cannot see <code>" + esc(repo) + "</code>, or the workflow is not on the default branch." : "Dispatch failed (HTTP " + r.status + "): " + esc(j.message || "GitHub rejected the dispatch."), "err"); });
       })
       .catch(function (e) { if (b) b.disabled = false; setStatus(sEl, "Network error: " + esc(e && e.message || String(e)), "err"); });
   }
