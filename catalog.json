@@ -1,11 +1,595 @@
 {
   "schemaVersion": 1,
-  "version": "3.38.7",
+  "version": "3.47.3",
   "name": "LabVIEW CI",
   "description": "Portable, repo-agnostic CI/CD capabilities for LabVIEW repositories: mass compile, VI Analyzer, VIDiff comparison reports, VI snapshots / VI Browser, and a status dashboard. Driven entirely by this catalog so the configurator UI and the installer stay in sync and new capabilities are a one-entry change.",
+  "installPause": {
+    "comment": "Toggle to block new installs from the Apply page. Set enabled=true (and optionally a message) to show a pause banner instead of installing; set enabled=false to re-enable. Used during in-progress tooling/base-image updates.",
+    "enabled": false,
+    "message": "Installation is temporarily unavailable due to an in-progress update. Please check back in about 30 minutes."
+  },
   "history": {
     "comment": "Release notes for the tooling, newest first. `version` (above) is the CURRENT published release and MUST equal releases[0].version. The dashboard version badge and the What's New dialog read these notes to tell a consumer what changed between the version they run and the latest this source repo publishes. Each published version should also be tagged v<version> in this repo so consumers can pin an update to a specific release.",
     "releases": [
+      {
+        "version": "3.47.3",
+        "date": "2026-06-23",
+        "title": "Dependency table: VIPC/.dragon files link to GitHub",
+        "type": "patch",
+        "summary": "On the Dependencies page, each VIPC and .dragon file name in the table is now a link that opens the latest version of that file on GitHub (the default-branch HEAD) in a new tab, so you can read its contents in the browser. Clicking a file link no longer toggles the VIPC row's expand/collapse.",
+        "highlights": [
+          "VIPC file headers and .dragon file headers in the dependency table are clickable links to the file on GitHub (blob/HEAD).",
+          "Links open in a new tab; clicking a link does not expand/collapse the VIPC package list."
+        ],
+        "breaking": false
+      },
+      {
+        "version": "3.47.2",
+        "date": "2026-06-23",
+        "title": "Clearer dependency-update dialog; missing items flagged in the table",
+        "type": "patch",
+        "summary": "The 'Dependency update needed' card no longer tries to summarize which packages/Dragon items are missing -- that is the table's job. It now states plainly that dependencies are declared in VIPC files (VIPM packages) OR .dragon files (NIPM packages), and that each missing item is flagged in the table below. The dependency table now marks any declared-but-not-yet-baked line item with a warning glyph that matches the card, so it is obvious which rows are causing the banner. The persistent dashboard banner is generalized from 'N Dragon items' to 'N dependency items (in VIPC or .dragon files)'.",
+        "highlights": [
+          "Dialog stops summarizing missing packages/Dragon items and clarifies that VIPC files (VIPM) or .dragon files (NIPM) both declare dependencies.",
+          "Table cells show a warning glyph for a project dependency that is declared but not baked into a worker container (Windows/Linux for VIPC packages; Win Beta for Dragon items), matching the card's iconography.",
+          "Dragon statuses missing / not_attempted / pending / wrong_version / conflict now render as the warning glyph (the banner cause); genuine install/resolution errors stay as the red error marker.",
+          "Persistent banner wording generalized away from singling out Dragon items."
+        ],
+        "breaking": false
+      },
+      {
+        "version": "3.47.1",
+        "date": "2026-06-23",
+        "title": "Docs: install vs. upgrade container management + diagram",
+        "type": "patch",
+        "summary": "Documentation now spells out the key distinction in how worker containers are managed: installation ALWAYS copies the shared LCWC base image into the repo's own GHCR (crane copy, seconds, no rebuild), while an upgrade adds/replaces project VIPC/Dragon dependency files and surfaces the opt-in 'dependencies need to be installed' banner when those declared packages are not yet baked into the current worker. Section 6 of the Documentation page gains a rendered Mermaid diagram of this overall logic, and the stale two-layer (labview-vipm-base / labview-vipc-layer) description is replaced with the current source-owned base + thin labview-ci.Dockerfile model.",
+        "highlights": [
+          "New 'Installation vs. upgrade -- how containers are managed' subsection with a real (Mermaid) flowchart of the install-copy vs. upgrade-rebuild paths.",
+          "Corrected the Worker container images intro to the current model: the source repo owns/publishes the base; clients crane copy it on install, or build a thin dependency layer on an opt-in upgrade.",
+          "Clarified that a VIPC/Dragon change never auto-rebuilds; the dashboard banner prompts an explicit, opt-in update (replace or new dated tag)."
+        ],
+        "breaking": false
+      },
+      {
+        "version": "3.47.0",
+        "date": "2026-06-23",
+        "title": "Configure Actions table: per-action platforms + dependency policy",
+        "type": "minor",
+        "summary": "The Configure page Activities list is now a table of the actions installed in the repository, with separate Linux and Windows columns. A checkbox appears in a cell only where an action supports that platform, so per-action platform selection lives in one place and config.os is the union of the chosen platforms. Two repository-wide options sit above the table, both off by default: require all dependencies to be installed before running, and automatically install missing dependencies and rebuild containers before running actions. The Reconfigure workflow persists the new config.actionOs and config.dependencyPolicy fields.",
+        "highlights": [
+          "Replaces the flat activity checklist with an Actions table that lists only installed actions and hides ones that are not installed (for example Antidoc when it is not enabled).",
+          "Adds per-action Linux and Windows checkboxes, shown only for the platforms each action supports.",
+          "Adds off-by-default require-dependencies and auto-install-dependencies options saved to config.dependencyPolicy, plus per-action platforms saved to config.actionOs, via the Reconfigure workflow."
+        ]
+      },
+      {
+        "version": "3.46.22",
+        "date": "2026-06-23",
+        "title": "Adding a VIPC never auto-rebuilds the worker",
+        "type": "patch",
+        "summary": "Completes the opt-in dependency model: adding or changing a project VIPC no longer rebuilds the worker container automatically. The worker-image workflows no longer trigger on a project .vipc push, the per-VIPC 'Monitor' toggle and the 'Re-run pipeline after a dependency change' (onDependencyChange) option are retired, and the only signal a dependency changed is the persistent 'dependencies need to be installed' banner. Rebuilds run only when you apply them from the Dependencies page, on the monthly security cron, or by manual dispatch. All UI and docs (Configure, FAQ, Documentation + the image-build diagram) are reconciled to match.",
+        "highlights": [
+          "Removed the **.vipc push trigger from the Windows, Linux, and Linux-beta worker-image workflows; the gate is now a trivial always-build since the workflow only runs on dispatch/cron.",
+          "Retired the per-VIPC 'Monitor' toggle and the config.triggers.onDependencyChange re-run option (and the dead revalidate job) across configure.html, reconfigure.yml, dashboard.py, and the reusable workflow.",
+          "Configure page's 'When dependencies change' section now explains the explicit, banner-driven flow instead of offering an auto-rebuild toggle.",
+          "FAQ and Documentation (including the Mermaid image-build diagram and runner table) updated to state that a VIPC change never triggers a rebuild on its own.",
+          "Legacy configs that still carry monitor:/onDependencyChange are read tolerantly and those keys are dropped on the next reconfigure."
+        ],
+        "breaking": false
+      },
+      {
+        "version": "3.46.21",
+        "date": "2026-06-23",
+        "title": "Dependency sub-views move into the page",
+        "type": "patch",
+        "summary": "The Dependencies page sub-view switcher (VIPM / VIPC, NI Packages, System Components) now lives in the page itself as a tab strip directly above the dependency tables -- just below the update panel -- instead of in the shared header sub-nav, so the switcher sits with the content it controls.",
+        "highlights": [
+          "VIPM / VIPC, NI Packages, and System Components are now in-page tabs over the dependency tables.",
+          "Removed the Dependencies header sub-nav; the page no longer depends on the shared subnav strip."
+        ],
+        "breaking": false
+      },
+      {
+        "version": "3.46.20",
+        "date": "2026-06-23",
+        "title": "Explicit, opt-in dependency container updates",
+        "type": "patch",
+        "summary": "Makes it clear and explicit when worker containers need to be updated to add VIPC/Dragon dependencies. A persistent dashboard banner appears whenever a declared project dependency is not yet baked into the current worker container. The Dependencies page gains an update panel that lists the new/changed dependencies, names the containers that need updating, sets expectations that this is a long, exclusive procedure, and lets you replace the existing containers (default) or create new ones. Newly-created dependency containers are selectable per action on the Configure page.",
+        "highlights": [
+          "Persistent amber banner across the dashboard when project dependencies are pending (driven by deps-pending.json).",
+          "Dependencies page update panel: shows pending packages/Dragon items, which containers need updating, a long-operation / no-other-actions warning, and Replace (default) vs Create-new options.",
+          "Worker-image workflow gains an update_mode input (replace|new): 'new' publishes a <year>-deps-<date> tag instead of moving the year/latest tags.",
+          "Configure page surfaces newly-created dependency-container tags so an action can be pointed at a new container; replaced containers default to the replacement.",
+          "Detection is conservative: only fires for a configured, cleanly-parsed project VIPC (or declared Dragon item) whose packages are missing from the current worker manifest."
+        ],
+        "breaking": false
+      },
+      {
+        "version": "3.46.19",
+        "date": "2026-06-23",
+        "title": "Install no longer implies a long container build",
+        "type": "patch",
+        "summary": "Removes the 5-90 minute estimates from the Apply page. Installing now only copies the shared LabVIEW container into the repository's registry (about a minute) and never bakes project dependencies. The capability chooser explains that VIPC/Dragon dependencies are applied later via a separate, opt-in action rather than during install.",
+        "highlights": [
+          "Drops the 60-90 / 5-90 minute install-time warnings and confirmation prompts.",
+          "Reframes the install plan step as a quick container copy, not a long build.",
+          "Clarifies that project dependency baking is a separate, opt-in operation after install."
+        ]
+      },
+      {
+        "version": "3.46.18",
+        "date": "2026-06-23",
+        "title": "Use crane for the registry-native base copy",
+        "type": "patch",
+        "summary": "The Windows runner does not ship docker buildx, so the registry-native copy now uses crane (go-containerregistry), a small self-contained binary. A no-dependency repository copies the public LCWC base image into its own GHCR worker package via crane copy + crane tag, with cross-repo blob mounting, so the multi-gigabyte layers are never downloaded to or re-uploaded from the runner. The base digest is read with crane digest (no pull).",
+        "highlights": [
+          "Downloads crane and copies the base image server-side instead of relying on docker buildx (absent on the Windows runner).",
+          "crane copy + crane tag publishes all worker tags by blob-mounting layers within the same GHCR owner.",
+          "No-dependency worker images are ready in a couple of minutes instead of fifteen-plus."
+        ]
+      },
+      {
+        "version": "3.46.17",
+        "date": "2026-06-23",
+        "title": "Read the base digest without the unsupported buildx flag",
+        "type": "patch",
+        "summary": "The registry-native base copy resolved the base image digest with 'docker buildx imagetools inspect --format', but the buildx shipped on the Windows runner does not support the --format flag, so the Prepare base step failed instantly. It now parses the digest from the standard inspect output and treats a missing digest as best-effort, so the fast no-download copy path proceeds.",
+        "highlights": [
+          "Parses the base image digest from the default imagetools inspect output (no --format flag).",
+          "Treats a missing digest as best-effort so the registry-native copy still runs."
+        ]
+      },
+      {
+        "version": "3.46.16",
+        "date": "2026-06-23",
+        "title": "Registry-native base copy makes no-dependency installs fast",
+        "type": "patch",
+        "summary": "A fresh repository with no selected VIPC dependencies now copies the public LCWC base image into its own GHCR worker package at the registry level (docker buildx imagetools create) instead of pulling the multi-gigabyte image down to the runner and pushing it back up. The base digest is resolved with imagetools inspect (no pull), and the worker manifest skips the container run on the copy path. A no-dependency worker is now ready in a couple of minutes instead of fifteen-plus.",
+        "highlights": [
+          "Copies the base image server-side with imagetools create, so the runner never transfers the multi-gigabyte layers.",
+          "Resolves the base digest via imagetools inspect with no docker pull.",
+          "Skips the nipkg container run for seed-only copies to avoid an extra multi-gigabyte pull."
+        ]
+      },
+      {
+        "version": "3.46.15",
+        "date": "2026-06-23",
+        "title": "Clients copy the base image instead of rebuilding it",
+        "type": "patch",
+        "summary": "Fixes the Windows worker build so fresh client repositories actually copy the public LCWC base image instead of rebuilding their own. The previous release detected the source repository from a hardcoded slug in the workflow, but the installer's branding substitution rewrote that slug to the client's own repository, so every client incorrectly thought it was the source and rebuilt the whole base (the slow path the base-copy design is meant to avoid). The source repository is now derived at runtime from the base image name, which the substitution cannot rewrite.",
+        "highlights": [
+          "Derives the source repository from the LCWC base image name so the install-time branding rewrite can't flip a client into source mode.",
+          "No-dependency client repositories now reliably copy the published base image in seconds instead of rebuilding it."
+        ]
+      },
+      {
+        "version": "3.46.14",
+        "date": "2026-06-23",
+        "title": "Re-enable installs after the base-image rollout",
+        "type": "patch",
+        "summary": "The public LCWC Windows base image is published, so new installs are re-enabled: the Apply-page install pause is turned off. Fresh repositories with no selected VIPC dependencies now seed their worker image by copying the public base in seconds instead of rebuilding the shared LabVIEW tooling.",
+        "highlights": [
+          "Turns off the toggleable Apply-page install pause now that the LCWC base image is public.",
+          "No-dependency repositories use the fast base-copy path on their first worker build."
+        ]
+      },
+      {
+        "version": "3.46.13",
+        "date": "2026-06-23",
+        "title": "Fix worker build VIPC staging output",
+        "type": "patch",
+        "summary": "Fixes an indentation error in the Windows worker build's Stage repo VIPC files step that made the build fail immediately when emitting the staged VIPC count used by the LCWC base-copy fast path. The install pause remains enabled while the base image is published.",
+        "highlights": [
+          "Corrects the Python indentation that wrote the staged VIPC count to GITHUB_OUTPUT.",
+          "Keeps the toggleable Apply-page install pause enabled during the in-progress base-image rollout."
+        ]
+      },
+      {
+        "version": "3.46.12",
+        "date": "2026-06-23",
+        "title": "Windows workers copy the LCWC base image",
+        "type": "patch",
+        "summary": "Fresh Windows container installs now seed each repository's GHCR worker image from the source-owned LCWC base image instead of rebuilding a repo-owned LabVIEW+VIPM base. Repositories with no selected VIPC dependencies use a fast pull/tag/push path; repositories with selected VIPC dependencies build only the repo-specific dependency layer and clearly warn that dependency application can take longer. Adds a toggleable Apply-page install pause so new installs can be blocked with a banner during an in-progress update.",
+        "highlights": [
+          "Publishes and consumes the source-owned LCWC Windows base image for shared LabVIEW/VIPM tooling layers.",
+          "Copies/tags the LCWC base into the client repository worker package when no selected VIPC dependencies exist.",
+          "Adds a toggleable install pause (catalog.installPause) that shows a banner instead of installing when enabled.",
+          "Adds release-time catalog/source sync validation so installer file lists cannot drift from the source-owned worker files again."
+        ]
+      },
+      {
+        "version": "3.46.11",
+        "date": "2026-06-23",
+        "title": "GitLab reinstall repairs prior scaffold attempts",
+        "type": "patch",
+        "summary": "GitLab browser installs now repair known-owned scaffold files when recovering from a previous generated install branch. If an earlier attempt left only a ci/install branch with broken generated files, rerunning the installer creates main from that branch and immediately commits the current fixed scaffold on top so the project is left in a working state.",
+        "highlights": [
+          "Commits the current GitLab scaffold after creating main from a previous generated install branch.",
+          "Updates existing scaffold files instead of preserving corrupted generated files from earlier attempts.",
+          "Keeps reruns focused on the LabVIEW CI-owned GitLab files while preserving the normal merge request path for established projects."
+        ]
+      },
+      {
+        "version": "3.46.10",
+        "date": "2026-06-23",
+        "title": "GitLab dashboard builder runs without indentation errors",
+        "type": "patch",
+        "summary": "Fixes the generated GitLab dashboard builder so the Python file starts at column zero instead of inheriting the Apply page template indentation. This prevents the first GitLab lvci:dashboard job from failing with an IndentationError and allows the downstream pages job to publish the dashboard artifact.",
+        "highlights": [
+          "Dedents the generated .gitlab/labview-ci/build-dashboard.py file before writing it into GitLab projects.",
+          "Validates the generated dashboard builder with Python compilation during the release check.",
+          "Unblocks the GitLab pages job that was skipped after the dashboard builder failed."
+        ]
+      },
+      {
+        "version": "3.46.9",
+        "date": "2026-06-23",
+        "title": "GitLab install completion distinguishes Pages publishing",
+        "type": "patch",
+        "summary": "GitLab browser installs now report that the repository files are installed while GitLab Pages is still publishing, instead of implying the dashboard URL is immediately live. The success panel links directly to the target project's Pipelines and Deploy > Pages screens and explains that a 404 can mean the pages job has not deployed yet, access is restricted, or GitLab has assigned a different final Pages URL.",
+        "highlights": [
+          "Uses the installer warning state for GitLab installs until Pages is verified from GitLab.",
+          "Adds direct links to the target project's Pipelines and Deploy > Pages screens after GitLab install.",
+          "Explains what to check when the expected GitLab Pages dashboard URL returns 404."
+        ]
+      },
+      {
+        "version": "3.46.8",
+        "date": "2026-06-23",
+        "title": "Private GitHub repo installs get setup guidance",
+        "type": "patch",
+        "summary": "Adds detailed private GitHub repository install documentation and links it from the Apply to New Repo repository field and the installer README. The guide explains token repository access, required and optional fine-grained permissions, GitHub Pages behavior for private repositories, and what happens after the install PR is merged.",
+        "highlights": [
+          "Documents private GitHub repo prerequisites and fine-grained token permissions in the installer guide.",
+          "Links the Apply to New Repo page near the --repo owner/name flag for users specifying a target repository.",
+          "Adds a private-repo setup link beside the Apply page target repo field before users create a token."
+        ]
+      },
+      {
+        "version": "3.46.7",
+        "date": "2026-06-23",
+        "title": "GitLab installs initialize empty projects directly",
+        "type": "patch",
+        "summary": "GitLab browser installs now handle brand-new empty projects without requiring users to create a README or initial commit first. When no target branch exists, the installer creates the initial branch directly and reports setup as complete instead of trying to open a merge request into a missing branch. If a previous failed install left only a generated ci/install branch, retrying creates a normal main branch from it.",
+        "highlights": [
+          "Creates the first GitLab branch directly when the project has no existing target branch.",
+          "Avoids opening impossible merge requests into a missing target branch.",
+          "Recovers projects where an earlier install created only a generated ci/install branch by creating main from that branch."
+        ]
+      },
+      {
+        "version": "3.46.6",
+        "date": "2026-06-23",
+        "title": "Installer shows honest end-to-end setup progress",
+        "type": "patch",
+        "summary": "Apply to a new repository now tracks the full install after the pull request is created: merge, dashboard publishing, worker container image builds, and final CI readiness. The progress bar no longer turns green while background image builds are still running, and installed GitHub Actions workflows now use clear run names so users can tell dashboard, Windows, and Linux work apart in the Actions list.",
+        "highlights": [
+          "Adds an overall setup progress panel with step status and expected durations for merge, dashboard publishing, image builds, and CI readiness.",
+          "Keeps watching Windows and Linux worker image workflows after install merge and explains why image builds can take 5-90 minutes.",
+          "Adds descriptive GitHub Actions run names for dashboard publishing, image builds, snapshots, mass compile, VI Analyzer, VIDiff, unit tests, Antidoc, update, release, and diagnostic workflows."
+        ]
+      },
+      {
+        "version": "3.46.5",
+        "date": "2026-06-23",
+        "title": "GitLab browser installs tolerate empty repository trees",
+        "type": "patch",
+        "summary": "Fixes the GitLab browser install path when GitLab returns 404 Tree Not Found while reading the target repository tree. The installer now resolves the default branch to a commit SHA before listing files and treats a missing tree as an empty inventory, so fresh GitLab projects can continue to the install commit and merge request instead of reporting a misleading token visibility error.",
+        "highlights": [
+          "Reads the GitLab default branch commit before listing repository files.",
+          "Treats GitLab 404 Tree Not Found during file inventory as an empty repository tree.",
+          "Prevents the Apply page from mislabeling this GitLab tree response as a token visibility problem."
+        ]
+      },
+      {
+        "version": "3.46.4",
+        "date": "2026-06-23",
+        "title": "GitLab installs can open a merge request from the browser",
+        "type": "patch",
+        "summary": "Apply to a new repository now supports a GitLab token install path. GitLab mode can store a GitLab host and token in the browser, create an install branch, commit the generated GitLab CI scaffold plus shared LabVIEW CI payload, and open a merge request. The command-line fallback now explains exactly where to run the generated scripts: in a local terminal from a cloned repository, not inside the GitLab web UI.",
+        "highlights": [
+          "Adds a GitLab token panel for browser-based install branch, commit, and merge-request creation.",
+          "Keeps GitLab.com as the default host while allowing self-managed GitLab server URLs.",
+          "Clarifies command-line fallback steps: clone the repo locally, cd into it, paste the command in Terminal/Git Bash/PowerShell, review, commit, and push."
+        ]
+      },
+      {
+        "version": "3.46.3",
+        "date": "2026-06-23",
+        "title": "Capability chooser stays closed on first load",
+        "type": "patch",
+        "summary": "Hardens the Apply page capability chooser so it stays collapsed on initial load even if the browser restores prior details state or a local copy carries stale markup. The chooser body is explicitly hidden while the details element is closed, and initialization closes the chooser after capabilities render.",
+        "highlights": [
+          "Adds an explicit closed-state CSS rule for the capability chooser body.",
+          "Closes the capability chooser during Apply page initialization after capabilities render.",
+          "Keeps the 3.46.2 worker-image warning and confirmation behavior unchanged."
+        ]
+      },
+      {
+        "version": "3.46.2",
+        "date": "2026-06-23",
+        "title": "Capability changes warn before long worker image builds",
+        "type": "patch",
+        "summary": "Apply to a new repository now keeps the capability picker collapsed by default and warns before edited choices trigger a custom Windows LabVIEW worker image build, which can add 60-90 minutes to first-time setup. Fresh worker image builds also skip Unit-Test-only VIPM package requirements when the Unit Tests capability is not installed, while Unit Tests installs still require the UTF/JUnit packages they need.",
+        "highlights": [
+          "Collapses the Apply page capability chooser behind a Defaults are recommended control.",
+          "Warns and confirms when edited capability choices still include the custom Windows LabVIEW worker image build path.",
+          "Lets fresh custom Windows worker images build without Unit-Test-only VIPM requirements unless Unit Tests are selected."
+        ]
+      },
+      {
+        "version": "3.46.1",
+        "date": "2026-06-23",
+        "title": "Apply flow shows the GitLab install target",
+        "type": "patch",
+        "summary": "Restores the GitHub/GitLab install target selector on the current 3.46 Apply page and wires GitLab selection through the command-line installer, download bundle, and provider scaffold. GitLab mode hides GitHub-only pull-request options, copies the GitLab install command from the green action, omits GitHub workflows, and writes the initial .gitlab-ci.yml plus .gitlab/labview-ci/ Pages scaffold.",
+        "highlights": [
+          "Adds a visible Install target dropdown at the top of Step 1 in Apply to a new repository.",
+          "Selecting GitLab updates the command with --provider gitlab and changes the green action to the GitLab command path.",
+          "The installer now supports --provider gitlab, records provider: gitlab, omits .github/workflows, and writes the GitLab CI/Pages scaffold."
+        ]
+      },
+      {
+        "version": "3.46.0",
+        "date": "2026-06-23",
+        "title": "Unit Test Framework: run all projects by default, or pick specific ones by revision",
+        "type": "minor",
+        "summary": "The Unit Testing configurator now leads with a default-on \"Run every LabVIEW project found in each revision\" option for the Unit Test Framework. With it on, CI discovers and runs every .lvproj that contains tests in whatever revision is being tested - so re-running an older revision runs the projects it had then, and brand-new projects are picked up automatically without any config change. Unchecking it switches to explicit control: a revision picker lets you reach a project that only existed in an older revision (the tree is read at that commit), tick exactly the .lvproj you want, and those run in any revision where they exist while being skipped where absent. A project you tick from an old revision stays selected and is clearly marked when it is not in the latest revision.",
+        "highlights": [
+          "Default \"Run every project\" mode handles old re-runs and new projects automatically (empty locations).",
+          "Explicit mode adds a revision picker so projects that no longer exist at HEAD are still selectable.",
+          "Ticked projects run where present and are skipped where absent; selecting none falls back to running all."
+        ]
+      },
+      {
+        "version": "3.45.1",
+        "date": "2026-06-23",
+        "title": "VI Browser is usable on phones and small screens",
+        "summary": "The VI Browser now adapts to narrow screens so the snapshot and block diagram get the whole viewport. On phones the VI tree becomes an off-canvas drawer that opens with a \"VIs\" button and closes when you pick a VI (or tap the dimmed backdrop), and the viewer toolbar collapses to a single slim, horizontally scrollable row. The desktop layout is unchanged, and switching revisions or other document types still uses the always-visible shared header.",
+        "highlights": [
+          "On small screens the VI file tree slides in as an off-canvas drawer instead of permanently occupying the top of the screen, so the open VI fills the viewport",
+          "A \"VIs\" toggle in the viewer toolbar opens the tree; selecting a VI, tapping the backdrop, or the drawer's close button collapses it again",
+          "The viewer toolbar (1.0 / 2.0 / Diff and the front-panel / block-diagram switches) becomes one compact, horizontally scrollable row to free up vertical space",
+          "Revision switching and navigation to other document types stay in the always-visible header, so the drawer is never needed to move around the site",
+          "Desktop layout and workflow are unchanged"
+        ]
+      },
+      {
+        "version": "3.45.0",
+        "date": "2026-06-23",
+        "title": "Consistent sub-item navigation in the shared sub-header",
+        "summary": "Every page now navigates its sub-views from the same sub-header strip instead of a mix of sub-header tabs (Settings) and in-body tabs (Dependencies). A page declares its tabs via window.LVCI.subnav and the shared header renders them in the context bar next to the Settings nav, so sub-item navigation looks and works the same across all documents.",
+        "highlights": [
+          "New header subnav API (window.LVCI.subnav + lvci:subnav event + lvciSetSubnavActive) renders page sub-views in the same context-bar strip the Settings sections use",
+          "The Dependencies page moves its VIPM / NI Packages / System Components tabs from the page body into the shared sub-header",
+          "One consistent place to switch sub-views on every document; panels stay in the body and switch via the shared event"
+        ]
+      },
+      {
+        "version": "3.44.1",
+        "date": "2026-06-23",
+        "title": "Populate history dialog: activity controls always fit and line up",
+        "type": "patch",
+        "summary": "Reworks the Populate dashboard history dialog so the per-activity Skip / Fill / Re-run controls can no longer be clipped by the dialog edge. Each activity row now places the name and description on the left with a meta line beneath (revision counts plus any Windows/Linux platform toggles), and pins the segmented control to the right where it stays vertically centred and aligned across every row - no matter how much metadata it carries. The layout reflows to a single stacked column on narrow and mobile screens, and the dialog is a little wider so it has room to breathe.",
+        "highlights": [
+          "Skip / Fill / Re-run controls are never cropped, even on rows that show platform toggles and long counts.",
+          "Every activity's control lines up on the right for a clean, scannable layout that scales as new activities are added.",
+          "Renders correctly on mobile - rows collapse to a single, left-aligned column."
+        ]
+      },
+      {
+        "version": "3.44.0",
+        "date": "2026-06-23",
+        "title": "Pick which .lvproj projects the Unit Test Framework runs",
+        "type": "minor",
+        "summary": "The Unit Testing configurator now surfaces the .lvproj projects it finds in your repository on the Unit Test Framework tab and lets you tick the ones the headless NI Unit Test Framework runner should open. Each ticked project is run when it is present in the revision being tested and is simply skipped when it is not part of that revision, so it is safe to enable every project you might ever test - including ones that only exist in some past or future revisions.",
+        "highlights": [
+          "Unit Test Framework tab lists discovered .lvproj files as checkboxes; ticking one runs it, unticking removes it.",
+          "Explains that ticked projects run if present and are skipped when absent from a revision.",
+          "Free-text Other test locations remain for folders or globs."
+        ]
+      },
+      {
+        "version": "3.43.2",
+        "date": "2026-06-23",
+        "title": "Bake ni_lib_junit_results_api into the CI worker tooling",
+        "type": "patch",
+        "summary": "Adds the NI JUnit Results API (ni_lib_junit_results_api 1.0.1.6) to the core CI tooling VIPC (ci-tooling.vipc) so it is installed into the worker image alongside ni_lib_utf_junit_report. This completes the VI tree the headless LabVIEWCLI RunUnitTests JUnit output depends on. Pushing this change rebuilds the Windows worker image.",
+        "highlights": [
+          "Adds ni_lib_junit_results_api 1.0.1.6 to ci-tooling.packages.json and regenerates ci-tooling.vipc.",
+          "Keeps the VIPC deterministic (regenerated by build-tooling-vipc.py)."
+        ]
+      },
+      {
+        "version": "3.43.1",
+        "date": "2026-06-23",
+        "title": "Apply to New Repo checks your token before it starts",
+        "summary": "When you click Install into your repo, the configurator now verifies up front that your token can actually write to the target repository, before it lists, downloads and uploads any tooling files. Previously an under-scoped or read-only token was only caught at the very end -- after the progress bar had nearly finished -- when the install branch push finally returned a 403. Now an insufficient token is reported immediately with the same clear guidance (it needs Contents, Pull requests, and Workflows set to Read and write), so you can fix the token and retry without sitting through a near-complete install that was always going to fail.",
+        "highlights": [
+          "The token write-permission check runs first, so a read-only or under-scoped token fails instantly instead of after an almost-finished progress bar.",
+          "The early failure shows the same actionable 403 message naming the exact permissions the install needs."
+        ]
+      },
+      {
+        "version": "3.43.0",
+        "date": "2026-06-23",
+        "title": "Consistent menu everywhere + Populate history / Re-run from any page",
+        "summary": "The Settings and Tools menus are now identical on every page (dashboard, VI Browser, reports, config). Populate history is reachable from any page, and a report's Re-run button opens the Populate history dialog pre-selected to re-run that exact revision and activity.",
+        "highlights": [
+          "Unified Settings/Tools navigation across the dashboard and all content pages",
+          "Populate history is available everywhere - off the dashboard it opens the dialog on the dashboard automatically",
+          "Re-run on a report now opens Populate history pre-scoped to that revision, activity, and platform instead of a silent dispatch"
+        ]
+      },
+      {
+        "version": "3.42.1",
+        "date": "2026-06-23",
+        "title": "Show .dragon dependencies under the VIPM and NI Packages tabs",
+        "type": "patch",
+        "summary": "A .dragon file is a manifest that tells VIPM and/or NI Package Manager what to install, not a separate package source. The Dependencies page no longer has a separate Dragon tab; instead each .dragon file is listed under the VIPM / VIPC tab (its VIPM dependencies) and the NI Packages tab (its NIPM dependencies), attributed to the file, with the Win Beta install status alongside.",
+        "highlights": [
+          "Removes the standalone Dragon tab.",
+          "Lists each .dragon file's VIPM dependencies under VIPM / VIPC and its NIPM dependencies under NI Packages, grouped by source file with declared versions and NIPM feed names.",
+          "Keeps the per-item Win Beta install status (installed, wrong version, missing, unsupported, conflict, or pending)."
+        ]
+      },
+      {
+        "version": "3.42.0",
+        "date": "2026-06-22",
+        "title": "Discover and surface JKI Dragon (.dragon) dependencies",
+        "type": "minor",
+        "summary": "Repository JKI Dragon dependency files (.dragon, plain-text TOML) are now parsed and shown on a new Dragon tab of the Dependencies page, grouped per file with each declared package's install status in the Win Beta container. This is the first step of NIPM/Dragon dependency management; applying .dragon files inside the Win Beta worker (and reporting per-item install results) follows. The feature is experimental and Win-Beta-only, and degrades gracefully where no .dragon files exist.",
+        "highlights": [
+          "Adds a shared TOML parser (.github/labview/dragon_deps.py) that reads both the string and inline-table dependency forms, the hyphen and underscore labview-version spellings, integer or string years, NIPM feeds, and unknown future fields.",
+          "New Dragon tab lists each .dragon file's VIPM and NIPM dependencies with declared versions, NIPM feed names, and a Win Beta install status (installed, wrong version, missing, unsupported, conflict, or pending).",
+          "Detects cross-file conflicts (same package different versions, conflicting NIPM feed URLs, differing LabVIEW years) and ships an example/Example.dragon fixture."
+        ]
+      },
+      {
+        "version": "3.41.4",
+        "date": "2026-06-22",
+        "title": "Parse NIPM worker manifests from the package columns",
+        "type": "patch",
+        "summary": "Windows worker manifests now parse `nipkg list` rows from the package-name and version columns instead of treating the final description word as the version. This keeps NIPM-delivered dependencies such as JKI Dragon in the structured manifest data used by the Dependencies table.",
+        "highlights": [
+          "Captures NIPM packages whose rows include architecture and long descriptions.",
+          "Allows the NI Packages dependency table to verify JKI Dragon from the rebuilt Windows worker manifest.",
+          "Preserves the raw `nipkg list` output for auditability while fixing the machine-readable package list."
+        ]
+      },
+      {
+        "version": "3.41.3",
+        "date": "2026-06-22",
+        "title": "Use desktop width in Populate History rows",
+        "type": "patch",
+        "summary": "Populate History activity rows now keep counts, platform toggles, and Skip/Fill/Re-run controls on one horizontal desktop line, while preserving a stacked layout for mobile widths.",
+        "highlights": [
+          "Uses a three-column desktop grid for ordinary activities and a four-column grid for Windows/Linux activities.",
+          "Keeps the segmented controls right-aligned without forcing desktop rows into a tall vertical control lane.",
+          "Moves the stacked count/platform/control layout behind a mobile-width breakpoint so narrow screens still read cleanly."
+        ]
+      },
+      {
+        "version": "3.41.2",
+        "date": "2026-06-22",
+        "title": "Align Populate History activity controls",
+        "type": "patch",
+        "summary": "Populate History activity rows now keep Skip/Fill/Re-run controls in a consistent right-side lane, including rows that also show Windows/Linux platform toggles.",
+        "highlights": [
+          "Changed the activity rows from wrapping flex layout to a fixed grid so mode controls align consistently.",
+          "Rows with platform selectors place Windows/Linux choices above the same right-aligned mode control instead of pushing some controls left.",
+          "Compact layouts stack controls cleanly without reserving an empty platform row for single-platform activities."
+        ]
+      },
+      {
+        "version": "3.41.1",
+        "date": "2026-06-23",
+        "title": "Label and isolate VI Browser 2.0 snapshot reruns",
+        "summary": "Manual VI Browser 2.0 snapshot reruns now show the target revision in the GitHub Actions run name, and the Windows/Linux 2.0 snapshot workflows scope concurrency by target revision instead of using one global queue per workflow. Re-running several selected revisions no longer appears as a stack of identical runs and no longer risks canceling different target revisions in the same batch.",
+        "highlights": [
+          "Adds target-SHA run names to Windows and Linux VI Browser 2.0 snapshot runs",
+          "Scopes 2.0 snapshot workflow concurrency by target revision so different selected commits do not cancel each other",
+          "Keeps duplicate reruns for the same target revision cancelable while making multi-revision history reruns clear in Actions"
+        ]
+      },
+      {
+        "version": "3.41.0",
+        "date": "2026-06-23",
+        "title": "Optional dependency-change CI + a dashboard filter for dependency-only revisions",
+        "summary": "Changing a committed .vipc still rebuilds the worker container as before; now you can also opt in to re-running the build/test/doc pipeline against the rebuilt image, so the project is re-validated whenever its dependencies change. A new dashboard toggle filters out revisions whose only change is an external dependency (.vipc/.vip). Both are off by default and set on the Configure page (config.triggers.onDependencyChange).",
+        "highlights": [
+          "Configure > When dependencies change: opt in to re-run Mass Compile, VI Analyzer, Unit Tests and Antidoc for a revision after a .vipc change (VIDiff and Snapshots are skipped - a dependency-only change touches no VIs). Off by default.",
+          "build-labview-image.yml dispatches those activities once the worker image has rebuilt - only when config.triggers.onDependencyChange is true, and only on a real project .vipc push (not the monthly base rebuild).",
+          "Dashboard: a new \"Include dependency-only revisions\" toggle hides revisions that only bump external dependencies; its default follows whether dependency-change CI is enabled."
+        ]
+      },
+      {
+              "version": "3.40.0",
+              "date": "2026-06-22",
+              "title": "Windows worker installs JKI Dragon from NI Package Manager",
+              "summary": "The Windows LabVIEW worker image now installs JKI Dragon from the LabVIEW 2026 NI Package Manager feed during image build. Dragon is treated as a required NIPM-delivered dependency-management component, captured by the worker manifest through nipkg list, and shown on the Dependencies page's NI Packages tab so users can verify it is present in the rebuilt container.",
+              "highlights": [
+                      "Installs the NIPM package jki-dragon into the Windows worker image and fails the image build if Dragon cannot be installed.",
+                      "Adds JKI Dragon to the generated and static NI Packages dependency table entries.",
+                      "Relies on the existing worker manifest nipkg_packages capture so the Dependencies page proves Dragon is present after the container is rebuilt."
+              ]
+      },
+      {
+        "version": "3.39.4",
+        "date": "2026-06-22",
+        "title": "Dependencies page: declutter the header and link workers to GHCR",
+        "summary": "The Dependencies page drops the Worker summary card and the two informational notes (the config.container summary and the 'columns resolve to worker manifests' line) that did not add value during normal use. Each worker column header (Windows, Linux) is now a link straight to that worker's image in the GitHub Container Registry. The status line is kept only for real errors (no repository, no revisions).",
+        "highlights": [
+          "Removes the Worker card and the config-summary / status info boxes from the top of the Dependencies page",
+          "Windows and Linux column headers link to the worker image package in GHCR"
+        ]
+      },
+      {
+        "version": "3.39.3",
+        "date": "2026-06-22",
+        "title": "Keep example VIPC in the Linux-proven artifact shape",
+        "summary": "The Linux and Linux Beta image builds now keep example/Dependencies.vipc in the exact 10-package artifact shape that native Linux VIPM has already applied successfully. Version 3.39.2 moved G Image into the core tooling VIPC, but removing it from the example VIPC made Linux VIPM reject that project VIPC as invalid during image build. This patch keeps the core-tooling ownership change while restoring the example VIPC artifact shape needed by the Linux VIPM installer.",
+        "highlights": [
+          "Restores example/Dependencies.vipc to the Linux-proven 10-package VIPC artifact after the 3.39.2 reduction failed in Linux Beta",
+          "Leaves G Image in ci-tooling.vipc for tooling ownership, while also preserving the project VIPC shape Linux VIPM accepts",
+          "Unblocks the stable Linux and Linux Beta worker image builds triggered by VIPC changes"
+        ]
+      },
+      {
+        "version": "3.39.2",
+        "date": "2026-06-22",
+        "title": "G Image moves into the core CI tooling VIPC",
+        "summary": "dataflow_g_lib_g_image (G Image) is used by the VI Browser snapshot generator to embed rendered images, so it is action-runner tooling rather than a project dependency. It is added to the core ci-tooling.vipc (baked into every worker that renders snapshots) and removed from the example project's VIPC, so no individual project has to declare it.",
+        "highlights": [
+          "ci-tooling.vipc now bakes dataflow_g_lib_g_image alongside the unit-test and JUnit reporting packages",
+          "example/Dependencies.vipc no longer declares G Image"
+        ]
+      },
+      {
+        "version": "3.39.1",
+        "date": "2026-06-22",
+        "title": "Restore Linux-applicable example VIPC artifact",
+        "summary": "The Linux and Linux Beta worker image builds now stage a known-good example/Dependencies.vipc artifact again. The dependency cleanup in 3.39.0 reduced that VIPC to project-only packages, but native Linux VIPM rejected the reduced file as an invalid VI package configuration during image build. This patch restores the previously proven VIPC blob so VIPM can apply the repository dependencies while the source-of-truth cleanup remains in place for the dedicated tooling and capability VIPCs.",
+        "highlights": [
+          "Restores example/Dependencies.vipc to the exact artifact previously applied successfully by the VIPM-enabled Linux worker build",
+          "Unblocks Build LabVIEW CI Image - Linux and Build LabVIEW CI Image - Linux Beta after VIPM rejected the reduced VIPC file",
+          "Keeps the 3.39.0 dependency model for core tooling and opt-in capability VIPCs while avoiding a broken Linux image build"
+        ]
+      },
+      {
+        "version": "3.39.0",
+        "date": "2026-06-22",
+        "title": "Dependency management cleaned up around VIPC files as the source of truth",
+        "summary": "Worker dependencies are now driven entirely by the VIPC files committed to a repository. ci-tooling.vipc is the core set every action runner needs (unit-test frameworks plus UTF/JUnit reporting); each project keeps its own dependencies in its project VIPC (the example keeps its OpenG and G Image libraries); and a new VIPM capability such as Antidoc gets its own opt-in VIPC under .github/labview/<capability>/ that is baked into the worker only when that capability is installed. The Dependencies page now finds ci-tooling.vipc correctly, labels each VIPC core / capability / project, says 'this file does not specify any packaged dependencies' for an empty VIPC, and shows each package as installed (green check), N/A (not applied on that platform), or an install error (red marker). The Configure dialog drops its Container & Dependencies tab -- the VIPC files in the repo are the single source of truth for what is installed.",
+        "highlights": [
+          "ci-tooling.vipc is the core action-runner dependency set; Antidoc moves to its own opt-in .github/labview/antidoc/antidoc.vipc, baked only when the Antidoc capability is installed",
+          "The example project keeps only its own OpenG and G Image libraries in example/Dependencies.vipc; the shared UTF/JUnit reporting packages are owned by the CI tooling",
+          "Dependencies page: fixes ci-tooling.vipc detection, adds core/capability/project labels and an empty-file message, and shows installed / N/A / error per package",
+          "Configure dialog removes the Container & Dependencies tab; worker dependencies are changed only by editing the repository's VIPC files"
+        ]
+      },
+      {
+        "version": "3.38.9",
+        "date": "2026-06-22",
+        "title": "Main Linux worker now installs VIPM and applies VIPC files",
+        "summary": "The native VIPM/VIPC flow proven in the Linux Beta lane is now the main Linux worker path. Linux Mass Compile, VI Analyzer, and VIDiff default to the shared GHCR Linux worker, the stable Linux image build publishes linux-* tags and workers/linux manifests, and the Dependencies page no longer describes Linux VIPC support as pending.",
+        "highlights": [
+          "Promotes the VIPM-enabled Linux image to the standard linux-latest worker used by Linux container jobs",
+          "Generates workers/linux manifests from the VIPM-applied Linux build so the Dependencies page reports stable Linux VIPC coverage",
+          "Removes active Apply to New Repo and Dependencies page wording that described Linux VIPC support as coming or experimental"
+        ]
+      },
+      {
+        "version": "3.38.8",
+        "date": "2026-06-22",
+        "title": "Linux Beta image installs native VIPM before applying VIPC files",
+        "summary": "The experimental Linux Beta worker now installs VIPM from JKI's documented Linux .deb instead of looking for an NI Package Manager package that is Windows-only in the tested feeds. The VIPC apply step also sets up Xvfb, marks the LabVIEW container runtime, starts LabVIEW headless, activates VIPM with the documented --name flag, refreshes package sources, applies staged repository VIPC files with `vipm install -y`, and lists installed packages afterward.",
+        "highlights": [
+          "Downloads and installs the documented VIPM Linux Debian package from JKI's CDN during the Linux Beta image build",
+          "Sets up DISPLAY/Xvfb and starts LabVIEW headless before applying repository VIPC files",
+          "Uses the documented VIPM CLI flow: activate, refresh, install -y <vipc>, and list --installed"
+        ]
+      },
       {
         "version": "3.38.7",
         "date": "2026-06-22",
@@ -2839,7 +3423,7 @@
     {
       "id": "custom-image",
       "name": "Shared LabVIEW container image",
-      "summary": "Builds a LabVIEW CI container image (NI base + VI Analyzer support + any repo .vipc dependencies) and publishes it to GHCR, named after the repo. Built once, pulled by the other jobs.",
+      "summary": "Builds LabVIEW CI container images (NI base + any repo .vipc dependencies) and publishes them to GHCR, named after the repo. Built once, pulled by the other jobs.",
       "status": "advanced",
       "recommended": false,
       "supportsOs": [
@@ -2856,66 +3440,17 @@
         ],
         "windows": [
           ".github/workflows/build-labview-image.yml",
+          ".github/docker/labview-ci-base.Dockerfile",
           ".github/docker/labview-ci.Dockerfile",
-          ".github/docker/labview-vipm-base.Dockerfile",
-          ".github/docker/labview-vipc-layer.Dockerfile",
           ".github/labview/vipm/"
         ],
         "linux": [
           ".github/workflows/build-labview-linux-image.yml",
-          ".github/docker/labview-ci-linux.Dockerfile"
-        ]
-      },
-      "notes": "Only required if you want the full VI Analyzer test set or to bake .vipc dependencies into the worker. Any repo-root *.vipc is detected and baked automatically. Non-2026 LabVIEW versions need a matching nipkg feed URL (build-arg)."
-    },
-    {
-      "id": "linux-vipm",
-      "name": "Linux VIPM/VIPC support",
-      "summary": "Installs the Linux-side VIPM/VIPC helper used by the Linux Beta worker image to apply repository VIPC dependency files during the image build.",
-      "status": "experimental",
-      "recommended": false,
-      "supportsOs": [
-        "linux"
-      ],
-      "requires": [],
-      "recommends": [
-        "linux-beta-container"
-      ],
-      "statusContext": null,
-      "files": {
-        "any": [],
-        "windows": [],
-        "linux": [
+          ".github/docker/labview-ci-linux.Dockerfile",
           ".github/labview/vipm/install-vipc-linux.sh"
         ]
       },
-      "notes": "Experimental Linux VIPM execution is only used by the Linux Beta container lane. Stable Linux actions continue to run on the NI base image unless that Beta image is selected in Configure Workers."
-    },
-    {
-      "id": "linux-beta-container",
-      "name": "Linux Beta container image",
-      "summary": "Builds an isolated Linux Beta worker image that includes VI Analyzer support, VIPM, repository VIPC dependencies, and a workers/linux-beta manifest without changing the stable Linux base-image path.",
-      "status": "experimental",
-      "recommended": false,
-      "supportsOs": [
-        "linux"
-      ],
-      "requires": [
-        "linux-vipm"
-      ],
-      "recommends": [],
-      "statusContext": null,
-      "files": {
-        "any": [
-          ".github/labview/build-worker-manifest.py"
-        ],
-        "windows": [],
-        "linux": [
-          ".github/workflows/build-labview-linux-beta-image.yml",
-          ".github/docker/labview-ci-linux-beta.Dockerfile"
-        ]
-      },
-      "notes": "This publishes linux-beta-* and linux-beta-latest tags. Linux Mass Compile, VI Analyzer, and VIDiff use the stable NI base image until a Linux Beta tag is selected in Configure Workers."
+      "notes": "Required when you want to bake .vipc dependencies into the worker. Any configured VIPC file is detected and baked automatically; if no config is present, repository VIPC files outside .github are staged."
     },
     {
       "id": "snapshots-windows-2",
@@ -2988,7 +3523,9 @@
       "statusContext": "CI / Antidoc",
       "files": {
         "any": [
-          ".github/labview/build-antidoc-report.py"
+          ".github/labview/build-antidoc-report.py",
+          ".github/labview/antidoc/antidoc.vipc",
+          ".github/labview/antidoc/antidoc.packages.json"
         ],
         "windows": [
           ".github/workflows/run-antidoc-windows-container.yml",
@@ -2996,7 +3533,7 @@
         ],
         "linux": []
       },
-      "notes": "Antidoc is a VIPM package (wovalab_lib_antidoc_cli) baked into the custom worker image, so enable the Shared LabVIEW image and turn on 'Use Antidoc' in Configure. Documentation generation renders diagrams via a Kroki server at run time (Wovalab-hosted by default), so the doc-gen step needs network access."
+      "notes": "Antidoc's VIPM dependencies (wovalab_lib_antidoc_cli + its chain) live in their own opt-in VIPC, .github/labview/antidoc/antidoc.vipc, NOT in the core ci-tooling.vipc. The image build bakes that VIPC into the worker only when the Antidoc capability is installed (its run-antidoc workflow is present), so repos that do not generate docs never carry the dependency. Enable the Shared LabVIEW image so the worker is rebuilt with Antidoc. Documentation generation renders diagrams via a Kroki server at run time (Wovalab-hosted by default), so the doc-gen step needs network access."
     }
   ]
 }
