@@ -1,0 +1,241 @@
+name: Build LabVIEW CI Image - Linux
+run-name: Build Linux worker image - ${{ github.event_name == 'workflow_dispatch' && 'manual setup' || github.sha }}
+
+on:
+  # The image build is a heavy CI process and is NEVER auto-triggered by a project
+  # dependency change. Adding or changing a project *.vipc does NOT rebuild the
+  # worker: dependency updates are explicit/opt-in (the dashboard dialog dispatches
+  # this workflow, or a manual workflow_dispatch). It still rebuilds when the
+  # tooling's own Linux build recipe changes, monthly for base-image security, or
+  # on demand.
+  push:
+    branches: [master]
+    paths:
+      - '.github/docker/labview-ci-linux.Dockerfile'
+      - '.github/labview/vipm/install-vipc-linux.sh'
+      - '.github/labview/build-worker-manifest.py'
+      - '.github/workflows/build-labview-linux-image.yml'
+  schedule:
+    # Monthly rebuild to pick up NI base image security updates
+    - cron: '0 4 1 * *'
+  workflow_dispatch:
+    inputs:
+      push_latest:
+        description: 'Deprecated -- :linux-latest is always published now (kept for compatibility)'
+        type: boolean
+        default: true
+
+env:
+  # IMAGE_NAME is populated at runtime by the resolve step below (-> $GITHUB_ENV);
+  # declared here as empty so it is an always-defined env key.
+  IMAGE_NAME: ''
+  PAGES_URL: ''
+  DEFAULT_TAG: linux-${{ vars.LABVIEW_VERSION || '2026' }}
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: build-labview-linux-image
+  cancel-in-progress: false
+
+jobs:
+  # This workflow only runs when the tooling's own Linux build recipe changes, on the
+  # monthly base-image security cron, or on explicit dispatch -- adding/changing a
+  # project .vipc never triggers it. So a rebuild is always intended when it starts.
+  # The gate is kept as a tiny, always-true step so the downstream `needs: gate`
+  # wiring is left untouched.
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.decide.outputs.build }}
+    steps:
+      - name: Decide whether to rebuild
+        id: decide
+        run: echo "build=true" >> "$GITHUB_OUTPUT"
+          PY
+
+  build-and-push:
+    needs: gate
+    if: needs.gate.outputs.build == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Resolve image name and date tag
+        id: date
+        env:
+          IMAGE_OVERRIDE: ${{ vars.LABVIEW_IMAGE_NAME }}
+          PAGES_URL_OVERRIDE: ${{ vars.PAGES_URL }}
+        run: |
+          owner=$(printf '%s' "${GITHUB_REPOSITORY%%/*}" | tr '[:upper:]' '[:lower:]')
+          name="${IMAGE_OVERRIDE:-${GITHUB_REPOSITORY##*/}-labview}"
+          name=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE_NAME=ghcr.io/${owner}/${name}" >> "$GITHUB_ENV"
+          echo "PAGES_URL=${PAGES_URL_OVERRIDE:-https://${owner}.github.io/${GITHUB_REPOSITORY##*/}}" >> "$GITHUB_ENV"
+          echo "date=$(date +'%Y%m%d')" >> "$GITHUB_OUTPUT"
+
+      - name: Stage repo VIPC files
+        run: |
+          python3 - <<'PY'
+          import os, re, glob, shutil, pathlib
+          dest = pathlib.Path('.github/labview/vipm-linux'); dest.mkdir(parents=True, exist_ok=True)
+          paths = []
+          cfg = pathlib.Path('.github/labview-ci.yml')
+          if cfg.exists():
+            in_c = in_v = False
+            for line in cfg.read_text(encoding='utf-8').splitlines():
+              if re.match(r'^\s*container:\s*$', line):
+                in_c = True; in_v = False; continue
+              if in_c and re.match(r'^\s{4}vipc:\s*$', line):
+                in_v = True; continue
+              if in_v:
+                m = re.match(r'^\s{6}-\s*path:\s*"?([^"]+?)"?\s*$', line)
+                if m:
+                  paths.append(m.group(1).strip()); continue
+                if re.match(r'^\s{0,4}\S', line):
+                  in_v = False; in_c = False
+              elif in_c and re.match(r'^\S', line):
+                in_c = False
+          if not paths:
+            paths = sorted(
+              p for p in glob.glob('**/*.vipc', recursive=True)
+              if not p.replace(os.sep, '/').startswith('.github/')
+            )
+          staged = 0
+          for p in paths:
+            if os.path.isfile(p):
+              shutil.copy2(p, dest / os.path.basename(p))
+              print('Staged VIPC:', p); staged += 1
+            else:
+              print('Configured VIPC not found (skipping):', p)
+          if not staged:
+            print('No VIPC files to stage.')
+          PY
+
+      - name: Compute worker version
+        id: ver
+        run: |
+          python3 - <<'PY'
+          import hashlib, pathlib, os
+          files = [
+              pathlib.Path('.github/docker/labview-ci-linux.Dockerfile'),
+              pathlib.Path('.github/labview/vipm/install-vipc-linux.sh'),
+          ]
+          files += sorted(pathlib.Path('.github/labview/vipm-linux').glob('*.vipc'), key=lambda p: p.name.lower())
+          parts = []
+          for path in files:
+            if path.exists():
+              parts.append(f'{path.name}={hashlib.sha256(path.read_bytes()).hexdigest()}')
+          digest = hashlib.sha256('\n'.join(parts).encode('utf-8')).hexdigest()
+          version = 'linux-' + digest[:12]
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+            f.write(f'version={version}\n')
+          print('Worker version:', version)
+          PY
+
+      - name: Build and push LabVIEW Linux CI image
+        env:
+          VIPM_SERIAL_NUMBER: ${{ secrets.VIPM_SERIAL_NUMBER }}
+          VIPM_FULL_NAME: ${{ secrets.VIPM_FULL_NAME }}
+          VIPM_EMAIL: ${{ secrets.VIPM_EMAIL }}
+        run: |
+          set -euo pipefail
+          base="${{ env.IMAGE_NAME }}"
+          tag="${{ env.DEFAULT_TAG }}"
+          date_tag="${{ steps.date.outputs.date }}"
+          worker_version="${{ steps.ver.outputs.version }}"
+          if [ "${{ github.event.inputs.push_latest }}" = "true" ]; then
+            echo "push_latest is kept for compatibility; :linux-latest is always published."
+          fi
+          secret_flags=()
+          if [ -n "${VIPM_SERIAL_NUMBER:-}" ]; then secret_flags+=(--secret id=vipm_serial,env=VIPM_SERIAL_NUMBER); fi
+          if [ -n "${VIPM_FULL_NAME:-}" ]; then secret_flags+=(--secret id=vipm_full_name,env=VIPM_FULL_NAME); fi
+          if [ -n "${VIPM_EMAIL:-}" ]; then secret_flags+=(--secret id=vipm_email,env=VIPM_EMAIL); fi
+
+          docker buildx build \
+            --platform linux/amd64 \
+            --file .github/docker/labview-ci-linux.Dockerfile \
+            --build-arg CI_WORKER_VERSION="${worker_version}" \
+            --build-arg LABVIEW_VERSION="${{ vars.LABVIEW_VERSION || '2026' }}" \
+            -t "${base}:${tag}" \
+            -t "${base}:${tag}-${date_tag}" \
+            -t "${base}:${worker_version}" \
+            -t "${base}:linux-latest" \
+            "${secret_flags[@]}" \
+            --load \
+            .
+
+          for image_tag in "${base}:${tag}" "${base}:${tag}-${date_tag}" "${base}:${worker_version}" "${base}:linux-latest"; do
+            docker push "$image_tag"
+          done
+
+      - name: Generate worker manifest
+        run: |
+          set -euo pipefail
+          worker_version="${{ steps.ver.outputs.version }}"
+          image_ref="${{ env.IMAGE_NAME }}:${worker_version}"
+          out_dir="ci-out/workers-pages/workers/linux/${worker_version}"
+          mkdir -p ci-out/worker "$out_dir"
+          docker run --rm "$image_ref" bash -lc "nipkg list" > ci-out/worker/nipkg-list.txt 2>/dev/null || : > ci-out/worker/nipkg-list.txt
+          base_digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$image_ref" 2>/dev/null || true)
+          vipc_args=()
+          while IFS= read -r -d '' vipc_file; do
+            vipc_args+=(--vipc "$vipc_file")
+          done < <(find .github/labview/vipm-linux -maxdepth 1 -type f -iname '*.vipc' -print0 | sort -z)
+
+          python3 .github/labview/build-worker-manifest.py \
+            --platform linux \
+            --version "$worker_version" \
+            --nipkg-list ci-out/worker/nipkg-list.txt \
+            --labview-version "${{ vars.LABVIEW_VERSION || '2026' }}" \
+            --pages-url "${{ env.PAGES_URL }}" \
+            --base-image nationalinstruments/labview:latest-linux \
+            --base-digest "$base_digest" \
+            --image-ref "$image_ref" \
+            --git-sha "${{ github.sha }}" \
+            --run-url "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --out-dir "$out_dir" \
+            "${vipc_args[@]}"
+
+          cat > "ci-out/workers-pages/workers/linux/latest.json" <<JSON
+          {
+            "version": "$worker_version",
+            "platform": "linux",
+            "manifest_url": "${{ env.PAGES_URL }}/workers/linux/$worker_version/manifest.html",
+            "build_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "git_sha": "${{ github.sha }}"
+          }
+          JSON
+
+      - name: Publish worker manifest to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4.1.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ci-out/workers-pages
+          destination_dir: .
+          keep_files: true
+
+      - name: Summary
+        run: |
+          echo "### Docker image published" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}-${{ steps.date.outputs.date }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`${{ env.IMAGE_NAME }}:${{ steps.ver.outputs.version }}\` (immutable worker tag)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`${{ env.IMAGE_NAME }}:linux-latest\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Worker version:** \`${{ steps.ver.outputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "[Worker manifest](${{ env.PAGES_URL }}/workers/linux/${{ steps.ver.outputs.version }}/manifest.html)" >> "$GITHUB_STEP_SUMMARY"

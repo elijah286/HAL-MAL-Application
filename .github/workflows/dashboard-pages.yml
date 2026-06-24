@@ -4,6 +4,7 @@
 # runtime — so this repo keeps no copy of the generator and the dashboard updates only
 # when you opt in. Owns the triggers + the Pages deploy.
 name: CI Dashboard — GitHub Pages
+run-name: Publish CI dashboard - ${{ github.event_name == 'workflow_dispatch' && 'manual run' || github.sha }}
 
 on:
   # Build on the install merge + whenever the config changes, so the dashboard
@@ -48,7 +49,7 @@ jobs:
         shell: bash
         run: |
           REF=$(awk '/^[[:space:]]*ref:[[:space:]]/{print $2; exit}' .github/labview-ci.yml 2>/dev/null)
-          echo "ref=${REF:-v3.38.7}" >> "$GITHUB_OUTPUT"
+          echo "ref=${REF:-v3.47.3}" >> "$GITHUB_OUTPUT"
       - name: Check out tooling (opted-in version)
         uses: actions/checkout@v5
         with:
