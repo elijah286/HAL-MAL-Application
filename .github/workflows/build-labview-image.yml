@@ -1,19 +1,12 @@
 name: Build LabVIEW CI Image
+run-name: Build Windows worker image - ${{ github.event_name == 'workflow_dispatch' && 'manual setup' || github.sha }}
 
 on:
-  # The image build is a heavy CI process, so it never auto-runs on an
-  # install/deploy (which only adds the tooling Dockerfile + tooling vipc under
-  # .github/). It rebuilds when YOUR project's dependencies change (a *.vipc
-  # outside the tooling dir), monthly for base-image security updates, or on
-  # demand. After install, build it once from the dashboard (or workflow_dispatch).
-  push:
-    branches: [master]
-    paths:
-      # Your project's VI Package Configuration(s) are baked into the worker, so
-      # changing your dependencies rebuilds it. The tooling's own vipc (added by
-      # the install under .github/) is excluded so deploying never triggers a build.
-      - '**.vipc'
-      - '!.github/**'
+  # The image build is a heavy CI process and is NEVER auto-triggered. Adding or
+  # changing a project *.vipc does NOT rebuild the worker: dependency updates are
+  # explicit/opt-in (the dashboard's "Review & update dependencies" dialog, which
+  # dispatches this workflow, or a manual workflow_dispatch). The only automatic
+  # run is the monthly base-image security rebuild below.
   schedule:
     # Monthly rebuild to pick up NI base image security updates
     - cron: '0 4 1 * *'
@@ -24,7 +17,7 @@ on:
         type: boolean
         default: true
       rebuild_vipm_base:
-        description: 'Force rebuild and push the shared LabVIEW+VIPM base before building the worker'
+        description: 'Deprecated - LCWC owns the shared base; source-repo runs publish it automatically'
         type: boolean
         default: false
       rebuild_policy:
@@ -32,6 +25,11 @@ on:
         type: choice
         options: [config, drain, cancel]
         default: config
+      update_mode:
+        description: 'Dependency update: replace = rebuild the current container tags in place (actions keep using them automatically); new = publish a new dated tag ALONGSIDE the current one, to select per-action in Configure Workers'
+        type: choice
+        options: [replace, new]
+        default: replace
 
 env:
   # IMAGE_NAME and PAGES_URL are populated at runtime by the resolve step below
@@ -40,6 +38,13 @@ env:
   IMAGE_NAME: ''
   PAGES_URL: ''
   DEFAULT_TAG: ${{ vars.LABVIEW_VERSION || '2026' }}
+  # The shared LCWC base image, owned by the source repo's GHCR. The source repo
+  # is detected at runtime by deriving the owning repo from THIS image name, so
+  # the installer's branding substitution can never make a client think it is the
+  # source. (A hardcoded source slug here would be rewritten to the client's slug
+  # at install time, making every client rebuild its own base -- the exact bug
+  # this avoids.)
+  LCWC_BASE_IMAGE: ${{ vars.LCWC_BASE_IMAGE || 'ghcr.io/elijah286/labview-ci-with-containers-labview-base:2026' }}
 
 permissions:
   contents: write   # also publishes the worker manifest to the gh-pages branch
@@ -53,96 +58,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Decide whether this push should actually rebuild the worker image. A push that
-  # ONLY changes .vipc files that are all flagged monitor:false in
-  # .github/labview-ci.yml is a deliberate "pin" (bake once, do not auto-update) and
-  # is skipped. Any other worker-affecting change (the Dockerfile, the VIPM assets,
-  # or a monitored .vipc) rebuilds, and non-push events (manual dispatch, the monthly
-  # cron) always rebuild. On ANY uncertainty or error the gate builds, so the
-  # container is never silently left stale.
+  # This workflow only runs on explicit dispatch (the dashboard's "Review & update
+  # dependencies" dialog, or a manual run) or the monthly base-image security cron --
+  # adding/changing a project .vipc never triggers it. So a rebuild is always intended
+  # when this workflow starts. The gate is kept as a tiny, always-true step purely so
+  # the downstream `needs: gate` / `if: needs.gate.outputs.build == 'true'` wiring is
+  # left untouched.
   gate:
     runs-on: ubuntu-latest
     outputs:
       build: ${{ steps.decide.outputs.build }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
       - name: Decide whether to rebuild
         id: decide
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          BEFORE: ${{ github.event.before }}
-          SHA: ${{ github.sha }}
-        run: |
-          python3 - <<'PY'
-          import os, re, subprocess, pathlib
-          def emit(b):
-              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-                  f.write('build=%s\n' % ('true' if b else 'false'))
-              print('rebuild =', b)
-              raise SystemExit(0)
-          try:
-              if os.environ.get('EVENT_NAME', '') != 'push':
-                  emit(True)
-              before = os.environ.get('BEFORE', '') or ''
-              sha = os.environ.get('SHA', '') or 'HEAD'
-              if not before or set(before) == {'0'}:
-                  emit(True)                      # new branch / unknown base
-              diff = subprocess.run(['git', 'diff', '--name-only', before, sha],
-                                    capture_output=True, text=True)
-              if diff.returncode != 0:
-                  emit(True)
-              files = [f for f in diff.stdout.splitlines() if f.strip()]
-              if not files:
-                  emit(True)
-              is_vipc = lambda f: f.lower().endswith('.vipc')
-              # Worker-affecting change that is NOT a .vipc -> always build.
-              nonvipc = [f for f in files if not is_vipc(f) and (
-                  f == '.github/docker/labview-ci.Dockerfile' or
-                  f == '.github/docker/labview-vipm-base.Dockerfile' or
-                  f == '.github/docker/labview-vipc-layer.Dockerfile' or
-                  f.startswith('.github/labview/vipm/') or
-                  f == '.github/workflows/build-labview-image.yml')]
-              if nonvipc:
-                  emit(True)
-              vipc_changed = [f for f in files if is_vipc(f)]
-              if not vipc_changed:
-                  emit(True)                      # nothing recognized -> safe build
-              # Read monitor flags from config.container.vipc (default: monitored).
-              monitor = {}
-              cfg = pathlib.Path('.github/labview-ci.yml')
-              if cfg.exists():
-                  in_c = in_v = False; cur = None
-                  for line in cfg.read_text(encoding='utf-8').splitlines():
-                      if re.match(r'^\s*container:\s*$', line):
-                          in_c = True; in_v = False; continue
-                      if in_c and re.match(r'^\s{4}vipc:\s*$', line):
-                          in_v = True; continue
-                      if in_v:
-                          m = re.match(r'^\s{6}-\s*path:\s*"?([^"]+?)"?\s*$', line)
-                          if m:
-                              cur = os.path.basename(m.group(1).strip())
-                              monitor.setdefault(cur, True); continue
-                          m = re.match(r'^\s{8}monitor:\s*(\S+)', line)
-                          if m and cur is not None:
-                              monitor[cur] = (m.group(1).strip().lower() == 'true'); continue
-                          if re.match(r'^\s{0,4}\S', line):
-                              in_v = False; in_c = False
-                      elif in_c and re.match(r'^\S', line):
-                          in_c = False
-              for f in vipc_changed:
-                  if monitor.get(os.path.basename(f), True):
-                      emit(True)                  # a monitored .vipc changed
-              emit(False)                         # all changed .vipc are monitor:false
-          except SystemExit:
-              raise
-          except Exception as e:
-              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-                  f.write('build=true\n')
-              print('gate error -> build=true:', e)
-          PY
+        run: echo "build=true" >> "$GITHUB_OUTPUT"
 
   # Before a heavy (~15+ min) worker rebuild, coordinate the CI runs that USE the
   # worker container so they do not straddle the image swap. The OLD image stays in
@@ -311,6 +240,7 @@ jobs:
       # tooling dir under .github/) is baked -- VIPC files are the source of truth
       # for project dependencies, so they are all discovered and applied by default.
       - name: Stage repo VIPC files
+        id: vipc
         shell: bash
         run: |
           python - <<'PY'
@@ -345,25 +275,114 @@ jobs:
                   print('Staged VIPC:', p); staged += 1
               else:
                   print('Configured VIPC not found (skipping):', p)
+          # Capability-scoped VIPCs (e.g. Antidoc) live under .github/labview/<cap>/
+          # and are baked into the worker ONLY when that capability is installed -
+          # detected by the presence of its action workflow. This keeps an add-on's
+          # VIPM dependencies (and their chains) out of every worker unless the
+          # functionality is actually used, so each repo applies only the
+          # dependency sets it needs. New VIPM capabilities follow this pattern:
+          # add .github/labview/<cap>/<cap>.vipc and a (vipc_path, signal) row here.
+          capability_vipcs = [
+              ('.github/labview/antidoc/antidoc.vipc', '.github/workflows/run-antidoc-windows-container.yml'),
+          ]
+          for vipc_path, signal in capability_vipcs:
+              if os.path.isfile(vipc_path) and os.path.isfile(signal):
+                  shutil.copy2(vipc_path, dest / os.path.basename(vipc_path))
+                  print('Staged capability VIPC:', vipc_path); staged += 1
+              elif os.path.isfile(vipc_path):
+                  print('Capability VIPC present but capability not installed (skipping):', vipc_path)
           if not staged:
               print('No VIPC files to stage.')
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as out:
+              out.write(f'count={staged}\n')
           PY
 
-      # Worker version = short SHA-256 over the build inputs (Dockerfile + VIPM
-      # installer + every staged .vipc). Same inputs -> same version, so the tag
-      # is immutable and a dashboard revision can map to the exact worker.
+      - name: Ensure Docker daemon is running
+        shell: powershell
+        run: ./.github/labview/ensure-docker.ps1
+
+      # crane (go-containerregistry) copies images registry-to-registry with
+      # cross-repo blob mounting -- no multi-GB pull/push through the runner, and
+      # no dependency on docker buildx (which is not installed on the Windows
+      # runner). It authenticates from the docker config written by docker/login.
+      - name: Set up crane (registry copy tool)
+        shell: powershell
+        run: |
+          $ver = 'v0.20.2'
+          $url = "https://github.com/google/go-containerregistry/releases/download/$ver/go-containerregistry_Windows_x86_64.tar.gz"
+          $tgz = Join-Path $env:RUNNER_TEMP 'crane.tar.gz'
+          $dir = Join-Path $env:RUNNER_TEMP 'crane'
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          Invoke-WebRequest -Uri $url -OutFile $tgz -UseBasicParsing
+          tar -xzf $tgz -C $dir
+          "$dir" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          & "$dir\crane.exe" version
+
+      - name: Prepare LCWC base image
+        id: base
+        shell: powershell
+        run: |
+          $baseImage = '${{ env.LCWC_BASE_IMAGE }}'
+          if (-not $baseImage.Contains(':')) { $baseImage = "${baseImage}:${{ env.DEFAULT_TAG }}" }
+          $baseRepo = ($baseImage -replace ':[^/:]+$', '')
+          # Derive the repo that OWNS this base image: ghcr.io/<owner>/<name>-labview-base
+          # -> <owner>/<name>. That owning repo is the source; every other repo is a
+          # client that copies the published base. Deriving the source identity from
+          # the image name (instead of a hardcoded slug) makes it immune to the
+          # installer's branding substitution, which would otherwise rewrite a literal
+          # source slug to the client's own slug and make the client rebuild the base.
+          $sourceSlug = ($baseRepo -replace '^[^/]+/', '') -replace '-labview-base$', ''
+          $isSourceRepo = ('${{ github.repository }}'.ToLowerInvariant() -eq $sourceSlug.ToLowerInvariant())
+
+          if ($isSourceRepo) {
+            $baseHash = (Get-FileHash -LiteralPath '.github/docker/labview-ci-base.Dockerfile' -Algorithm SHA256).Hash.ToLower().Substring(0, 12)
+            $immutableBase = "${baseRepo}:base-${baseHash}"
+            Write-Host "::notice::Publishing LCWC base image $baseImage ($immutableBase). Fresh client repositories copy this image into their own GHCR package instead of reinstalling the shared LabVIEW tooling layers."
+            docker build -f .github/docker/labview-ci-base.Dockerfile -t $baseImage -t $immutableBase .
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            foreach ($tag in @($baseImage, $immutableBase)) {
+              Write-Host "Pushing LCWC base $tag"
+              docker push $tag
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
+          } else {
+            Write-Host "::notice::Using LCWC base image $baseImage. If this repository has no selected VIPC dependencies, the workflow will only copy/tag this image into the repository's own GHCR package."
+          }
+
+          # Resolve the base image's manifest digest WITHOUT pulling the multi-GB
+          # image down to the runner -- crane reads it straight from the registry.
+          # Only the VIPC-layer path (docker build FROM the base) needs the image
+          # locally, and docker build pulls it then; the no-VIPC copy path never
+          # downloads it at all.
+          $digest = (crane digest $baseImage 2>$null)
+          if (-not $digest) {
+            throw "Could not read the LCWC base image '$baseImage' from the registry. Confirm the source GHCR package is public/readable or set the LCWC_BASE_IMAGE repository variable to a readable base image."
+          }
+          $repoDigest = "${baseRepo}@${digest}"
+          "image=$baseImage" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "repo_digest=$repoDigest" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "digest=$digest" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "LCWC base image: $baseImage  digest: $digest"
+
+      # Worker version = short SHA-256 over the LCWC seed image plus any staged
+      # repo VIPC layer inputs. Same inputs -> same immutable worker tag.
       - name: Compute worker version
         id: ver
         shell: powershell
         run: |
-          $files = @(
-            '.github/docker/labview-vipm-base.Dockerfile',
-            '.github/docker/labview-vipc-layer.Dockerfile',
-            '.github/labview/vipm/install-vipc.ps1'
+          $vipcFiles = @(Get-ChildItem '.github/labview/vipm' -Filter *.vipc -File | Sort-Object Name)
+          $files = @()
+          if ($vipcFiles.Count -gt 0) {
+            $files += '.github/docker/labview-ci.Dockerfile'
+            $files += '.github/labview/vipm/install-vipc.ps1'
+            $files += ($vipcFiles | ForEach-Object FullName)
+          }
+          $parts = @(
+            'lcwc-base-image=${{ steps.base.outputs.image }}',
+            'lcwc-base-digest=${{ steps.base.outputs.digest }}',
+            'vipc-count={0}' -f $vipcFiles.Count
           )
-          $files += (Get-ChildItem '.github/labview/vipm' -Filter *.vipc -File |
-                     Sort-Object Name | ForEach-Object FullName)
-          $parts = foreach ($f in $files) {
+          $parts += foreach ($f in $files) {
             if (Test-Path -LiteralPath $f) {
               $h = (Get-FileHash -LiteralPath $f -Algorithm SHA256).Hash.ToLower()
               '{0}={1}' -f ([System.IO.Path]::GetFileName($f)), $h
@@ -376,69 +395,73 @@ jobs:
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           Write-Host "Worker version: $version"
 
-      - name: Ensure Docker daemon is running
-        shell: powershell
-        run: ./.github/labview/ensure-docker.ps1
-
-      - name: Pull or build LabVIEW VIPM base image
-        shell: powershell
-        run: |
-          $baseRef = '${{ env.IMAGE_NAME }}-vipm-base:${{ env.DEFAULT_TAG }}'
-          $latestRef = '${{ env.IMAGE_NAME }}-vipm-base:latest'
-          $rebuild = '${{ github.event.inputs.rebuild_vipm_base || 'false' }}' -eq 'true'
-
-          if (-not $rebuild) {
-            Write-Host "Pulling existing VIPM base image: $baseRef"
-            docker pull $baseRef
-            if ($LASTEXITCODE -ne 0) {
-              Write-Host "VIPM base image was not available; it will be built once and pushed."
-              $rebuild = $true
-            }
-          }
-
-          if ($rebuild) {
-            Write-Host "Building shared LabVIEW+VIPM base image: $baseRef"
-            docker build -f .github/docker/labview-vipm-base.Dockerfile `
-              -t $baseRef `
-              -t $latestRef .
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-            foreach ($ref in @($baseRef, $latestRef)) {
-              Write-Host "Pushing $ref"
-              docker push $ref
-              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            }
-          }
-
       - name: Build and push LabVIEW CI image
         shell: powershell
         run: |
           $base  = '${{ env.IMAGE_NAME }}'
-          $vipmBase = '${{ env.IMAGE_NAME }}-vipm-base:${{ env.DEFAULT_TAG }}'
           $ver   = '${{ env.DEFAULT_TAG }}'
           $date  = '${{ steps.date.outputs.date }}'
           $wv    = '${{ steps.ver.outputs.version }}'
+          $lcwcBase = '${{ steps.base.outputs.image }}'
+          $vipcCount = [int]'${{ steps.vipc.outputs.count }}'
+          $unitTestsInstalled = $false
+          $inActivities = $false
+          if (Test-Path '.github/labview-ci.yml') {
+            foreach ($line in (Get-Content '.github/labview-ci.yml')) {
+              if ($line -match '^\s*activities:\s*$') { $inActivities = $true; continue }
+              if ($inActivities) {
+                if ($line -match '^\s*-\s*unit-tests\s*$') { $unitTestsInstalled = $true; break }
+                if ($line -match '^\S') { $inActivities = $false }
+              }
+            }
+          }
+          $unitTestsArg = if ($unitTestsInstalled) { 'true' } else { 'false' }
+          if (-not $unitTestsInstalled) {
+            Write-Host "::notice::Unit Tests capability is not installed; UTF/JUnit-only VIPM essentials will be skipped for this worker build. Project VIPC dependencies remain required."
+          }
           # The immutable per-content tag ($wv) sits alongside the moving tags.
-          # :latest is always published so the Configure dialog's default "Latest"
-          # container selection reliably resolves to the newest build.
-          $tags  = @("${base}:${ver}", "${base}:${ver}-${date}", "${base}:${wv}", "${base}:latest")
+          # update_mode=replace (default): rebuild the standard tags in place, so
+          # actions using :latest/:<year> pick up the dependency update automatically.
+          # update_mode=new: publish a NEW dated tag alongside the current container
+          # WITHOUT moving :latest/:<year>, so existing actions keep the current
+          # worker until a user selects the new tag per action in Configure Workers.
+          $updateMode = '${{ github.event.inputs.update_mode || 'replace' }}'
+          if ($updateMode -eq 'new') {
+            $newTag = "${ver}-deps-${date}"
+            $tags = @("${base}:${wv}", "${base}:${newTag}")
+          } else {
+            $tags = @("${base}:${ver}", "${base}:${ver}-${date}", "${base}:${wv}", "${base}:latest")
+          }
 
-          # Build — context is repo root so Dockerfile can COPY vipm/ and .vipc
-          $tagFlags = ($tags | ForEach-Object { "-t", $_ })
-          # VIPM 26.3 Community Edition installs only from inside a PUBLIC Git repo,
-          # so pass this build's public repo URL for install-vipc.ps1 to use as the
-          # origin of its install working dir.
-          $repoUrl = '${{ github.server_url }}/${{ github.repository }}.git'
-          docker build -f .github/docker/labview-vipc-layer.Dockerfile `
-            --build-arg VIPM_BASE_IMAGE=$vipmBase `
-            --build-arg CI_WORKER_VERSION=$wv `
-            --build-arg VIPM_PUBLIC_REPO_URL=$repoUrl @tagFlags .
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-          foreach ($tag in $tags) {
-            Write-Host "Pushing $tag"
-            docker push $tag
+          if ($vipcCount -eq 0) {
+            Write-Host "::notice::No repository VIPC dependencies are selected. Fast path: copying the LCWC base image into this repository's GHCR worker package at the REGISTRY level (crane copy) -- the multi-gigabyte layers are blob-mounted server-side, never downloaded to or re-uploaded from the runner, so this takes seconds, not minutes."
+            $immutable = "${base}:${wv}"
+            crane copy $lcwcBase $immutable
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            foreach ($tag in @($ver, "${ver}-${date}", 'latest')) {
+              crane tag $immutable $tag
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+              Write-Host "Published (registry copy): ${base}:${tag}"
+            }
+            Write-Host "Published (registry copy): $immutable"
+          } else {
+            Write-Host "::notice::$vipcCount repository VIPC file(s) selected. Building the repo-specific dependency layer now; this can take a long time because VIPM must apply project dependencies before CI can run on the updated worker."
+            $tagFlags = ($tags | ForEach-Object { "-t", $_ })
+            $repoUrl = '${{ github.server_url }}/${{ github.repository }}.git'
+            docker build -f .github/docker/labview-ci.Dockerfile `
+              --build-arg LCWC_BASE_IMAGE=$lcwcBase `
+              --build-arg CI_WORKER_VERSION=$wv `
+              --build-arg VIPM_PUBLIC_REPO_URL=$repoUrl `
+              --build-arg LVCI_UNIT_TESTS_INSTALLED=$unitTestsArg @tagFlags .
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            foreach ($tag in $tags) {
+              Write-Host "Pushing $tag"
+              docker push $tag
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
+            if ($updateMode -eq 'new') {
+              Write-Host "::notice::Published a NEW worker tag '${base}:${newTag}' alongside the current container. Select it per action in Configure Workers; existing actions keep using the current :latest / :${ver} worker until you switch them."
+            }
           }
 
       # Capture what's installed and render the human/machine worker manifest.
@@ -450,20 +473,25 @@ jobs:
           $base   = '${{ env.IMAGE_NAME }}'
           $wv     = '${{ steps.ver.outputs.version }}'
           $img    = "${base}:${wv}"
+          $workerLayer = if ([int]'${{ steps.vipc.outputs.count }}' -gt 0) { 'repo-vipc-layer' } else { 'seed-only-copy' }
           $outDir = "ci-out/workers-pages/workers/windows/$wv"
           New-Item -ItemType Directory -Force -Path 'ci-out/worker' | Out-Null
 
           # Installed-package list captured from inside the freshly built image.
-          try {
-            docker run --rm $img powershell -NoLogo -NoProfile -Command "nipkg list" 2>$null |
-              Out-File -FilePath 'ci-out/worker/nipkg-list.txt' -Encoding utf8
-          } catch { Write-Host "nipkg list capture failed: $_" }
+          # A seed-only copy is byte-identical to the LCWC base and is NOT present on
+          # the runner (it was copied at the registry level), so pulling it back just
+          # to read nipkg would re-download multiple gigabytes. Skip it on the copy
+          # path; the VIPC-layer path already has the image locally from docker build.
+          if ($workerLayer -eq 'repo-vipc-layer') {
+            try {
+              docker run --rm $img powershell -NoLogo -NoProfile -Command "nipkg list" 2>$null |
+                Out-File -FilePath 'ci-out/worker/nipkg-list.txt' -Encoding utf8
+            } catch { Write-Host "nipkg list capture failed: $_" }
+          } else {
+            Write-Host "Seed-only copy: the worker mirrors the LCWC base; skipping the nipkg capture to avoid a multi-gigabyte pull."
+          }
 
-          $baseDigest = ''
-          try {
-            $baseDigest = (docker inspect --format '{{index .RepoDigests 0}}' `
-              '${{ env.IMAGE_NAME }}-vipm-base:${{ env.DEFAULT_TAG }}' 2>$null)
-          } catch {}
+          $baseDigest = '${{ steps.base.outputs.digest }}'
 
           $vipcArgs = @()
           Get-ChildItem '.github/labview/vipm' -Filter *.vipc -File |
@@ -475,8 +503,11 @@ jobs:
             --nipkg-list 'ci-out/worker/nipkg-list.txt' `
             --labview-version ${{ vars.LABVIEW_VERSION || '2026' }} `
             --pages-url '${{ env.PAGES_URL }}' `
-            --base-image '${{ env.IMAGE_NAME }}-vipm-base:${{ env.DEFAULT_TAG }}' `
+            --base-image '${{ steps.base.outputs.image }}' `
             --base-digest "$baseDigest" `
+            --seed-image '${{ steps.base.outputs.image }}' `
+            --seed-digest "$baseDigest" `
+            --worker-layer $workerLayer `
             --image-ref $img `
             --git-sha '${{ github.sha }}' `
             --run-url 'https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}' `

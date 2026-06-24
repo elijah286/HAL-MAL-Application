@@ -72,10 +72,11 @@ def parse_nipkg_list(raw: str) -> list[dict]:
     Best-effort parse of `nipkg list` output into {name, version} records.
 
     The exact columns of `nipkg list` vary by NIPM version, so this is lenient:
-    it skips header/separator/blank lines and treats the first whitespace token
-    as the package name and the last token as the version when the last token
-    looks version-like. Lines that do not fit are ignored here but remain
-    visible in the raw text preserved on the manifest.
+    it skips header/separator/blank lines and treats the first two whitespace
+    tokens as package name and version. Later columns can include architecture
+    and a wrapping description, so the final token is not a reliable version.
+    Lines that do not fit are ignored here but remain visible in the raw text
+    preserved on the manifest.
     """
     packages: list[dict] = []
     for line in raw.splitlines():
@@ -88,9 +89,9 @@ def parse_nipkg_list(raw: str) -> list[dict]:
         tokens = stripped.split()
         if len(tokens) < 2:
             continue
-        last = tokens[-1]
-        if any(ch.isdigit() for ch in last) and "." in last:
-            packages.append({"name": tokens[0], "version": last})
+        version = tokens[1]
+        if any(ch.isdigit() for ch in version):
+            packages.append({"name": tokens[0], "version": version})
     return sorted(packages, key=lambda p: p["name"].lower())
 
 
@@ -121,6 +122,10 @@ def build_manifest(args: argparse.Namespace) -> dict:
         "labview_version": args.labview_version,
         "base_image": args.base_image,
         "base_digest": args.base_digest or "",
+        "seed_image": args.seed_image or "",
+        "seed_digest": args.seed_digest or "",
+        "worker_layer": args.worker_layer or "",
+        "copied_from_base": args.worker_layer == "seed-only-copy",
         "image_ref": args.image_ref or "",
         "build_date": args.build_date,
         "git_sha": args.git_sha,
@@ -174,6 +179,9 @@ _PAGE = """<!DOCTYPE html>
     <tr><td class="k">Image</td><td><code>{image_ref}</code></td></tr>
     <tr><td class="k">Base image</td><td><code>{base_image}</code></td></tr>
     <tr><td class="k">Base digest</td><td><code>{base_digest}</code></td></tr>
+    <tr><td class="k">LCWC seed image</td><td><code>{seed_image}</code></td></tr>
+    <tr><td class="k">LCWC seed digest</td><td><code>{seed_digest}</code></td></tr>
+    <tr><td class="k">Worker layer</td><td>{worker_layer}</td></tr>
     <tr><td class="k">Built</td><td>{build_date}</td></tr>
     <tr><td class="k">Source commit</td><td><code>{git_sha}</code></td></tr>
     <tr><td class="k">Build run</td><td>{run_link}</td></tr>
@@ -246,6 +254,9 @@ def render_html(m: dict, pages_url: str) -> str:
         image_ref=esc(m["image_ref"]) or "—",
         base_image=esc(m["base_image"]),
         base_digest=esc(m["base_digest"]) or "—",
+        seed_image=esc(m.get("seed_image")) or "—",
+        seed_digest=esc(m.get("seed_digest")) or "—",
+        worker_layer=esc(m.get("worker_layer")) or "—",
         build_date=esc(m["build_date"]),
         git_sha=esc(m["git_sha"]) or "—",
         run_link=run_link,
@@ -270,6 +281,9 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--labview-version", default="")
     ap.add_argument("--base-image", default="")
     ap.add_argument("--base-digest", default="")
+    ap.add_argument("--seed-image", default="", help="Reusable seed/base image used before any repo-specific layer")
+    ap.add_argument("--seed-digest", default="", help="Resolved digest of the reusable seed/base image")
+    ap.add_argument("--worker-layer", default="", help="Worker layer strategy, e.g. seed-only-copy or repo-vipc-layer")
     ap.add_argument("--image-ref", default="", help="Published image reference (tag)")
     ap.add_argument("--build-date", default=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
     ap.add_argument("--git-sha", default="")

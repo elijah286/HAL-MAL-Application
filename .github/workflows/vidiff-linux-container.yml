@@ -1,0 +1,212 @@
+name: VIDiff Report — Linux Container
+run-name: VIDiff Linux container - ${{ github.event_name == 'workflow_dispatch' && 'manual run' || github.event.pull_request.head.sha || github.sha }}
+
+on:
+  pull_request:
+    paths:
+      - '**.vi'
+      - '**.ctl'
+      - '!.github/**'
+  push:
+    branches: [master]
+    paths:
+      - '**.vi'
+      - '**.ctl'
+      - '!.github/**'
+  workflow_dispatch:
+    inputs:
+      base_sha:
+        description: 'Base commit SHA'
+        required: false
+        default: ''
+      head_sha:
+        description: 'Head commit SHA'
+        required: false
+        default: ''
+      files:
+        description: 'Optional comma/newline-separated VI/CTL paths to diff (default: all changed in the range)'
+        required: false
+        default: ''
+
+env:
+  LABVIEW_CONTAINER_IMAGE: ''
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  vidiff-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Determine SHAs
+        id: shas
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          expand() {
+            local s="$1"
+            [ -z "$s" ] && echo "" && return
+            gh api "repos/${{ github.repository }}/commits/$s" --jq '.sha' 2>/dev/null || echo "$s"
+          }
+          if [ -n "${{ github.event.inputs.head_sha }}" ]; then
+            HEAD=$(expand "${{ github.event.inputs.head_sha }}")
+            BASE=$(expand "${{ github.event.inputs.base_sha }}")
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            HEAD="${{ github.event.pull_request.head.sha }}"
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            HEAD="${{ github.sha }}"
+            BASE="${{ github.event.before }}"
+          fi
+          echo "head=$HEAD" >> "$GITHUB_OUTPUT"
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "pr_number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Post pending status
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -s -X POST \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/statuses/${{ steps.shas.outputs.head }}" \
+            -d "{\"state\":\"pending\",\"target_url\":\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\",\"description\":\"VIDiff in progress\",\"context\":\"CI / VIDiff (linux)\"}"
+
+      - name: Checkout head commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.shas.outputs.head }}
+          fetch-depth: 0
+          path: head
+
+      - name: Checkout base commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.shas.outputs.base }}
+          path: base
+
+      - name: Restore CI scripts from main
+        if: github.event_name == 'workflow_dispatch'
+        working-directory: head
+        run: |
+          git fetch --no-tags origin "${{ github.event.repository.default_branch }}"
+          git checkout FETCH_HEAD -- .github/labview .github/workflows
+
+      - name: Resolve Linux container image name
+        working-directory: head
+        env:
+          IMAGE_OVERRIDE: ${{ vars.LABVIEW_IMAGE_NAME }}
+          ACTION_ID: vidiff
+        run: |
+          selected=$(python3 - <<'PY'
+          import os, pathlib, re
+          action_id = os.environ.get('ACTION_ID', '')
+          cfg = pathlib.Path('.github/labview-ci.yml')
+          use = ''
+          actions = {}
+          if cfg.exists():
+              section = ''
+              for line in cfg.read_text(encoding='utf-8').splitlines():
+                  if re.match(r'^\s*container:\s*$', line): section = 'container'; continue
+                  if section == 'container':
+                      match = re.match(r'^\s{4}use:\s*"?([^"#]+)"?', line)
+                      if match: use = match.group(1).strip()
+                      if re.match(r'^\s{4}actions:\s*$', line): section = 'actions'; continue
+                  elif section == 'actions':
+                      match = re.match(r'^\s{6}([A-Za-z0-9_.-]+):\s*"?([^"#]+)"?', line)
+                      if match: actions[match.group(1)] = match.group(2).strip()
+                      if re.match(r'^\s{0,4}\S', line): section = 'container'
+          print(actions.get(action_id) or use or '')
+          PY
+          )
+          owner=$(printf '%s' "${GITHUB_REPOSITORY%%/*}" | tr '[:upper:]' '[:lower:]')
+          name="${IMAGE_OVERRIDE:-${GITHUB_REPOSITORY##*/}-labview}"
+          name=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')
+          case "$selected" in
+            ''|latest) image="ghcr.io/${owner}/${name}:linux-latest"; worker_workflow="Build LabVIEW CI Image - Linux" ;;
+            base|none) image="nationalinstruments/labview:latest-linux"; worker_workflow="" ;;
+            linux-beta-*) image="ghcr.io/${owner}/${name}:${selected}"; worker_workflow="Build LabVIEW CI Image - Linux Beta" ;;
+            linux-*) image="ghcr.io/${owner}/${name}:${selected}"; worker_workflow="Build LabVIEW CI Image - Linux" ;;
+            *) image="ghcr.io/${owner}/${name}:linux-${selected}"; worker_workflow="Build LabVIEW CI Image - Linux" ;;
+          esac
+          echo "LABVIEW_CONTAINER_IMAGE=$image" >> "$GITHUB_ENV"
+          echo "LINUX_WORKER_WORKFLOW=$worker_workflow" >> "$GITHUB_ENV"
+          echo "Using Linux container image: $image"
+
+      - name: Wait for Linux worker image build
+        working-directory: head
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "$LABVIEW_CONTAINER_IMAGE" = "nationalinstruments/labview:latest-linux" ]; then
+            echo "Using the NI Linux base image; no Linux worker build to wait for."
+            exit 0
+          fi
+          bash .github/labview/wait-for-worker-image.sh "${{ steps.shas.outputs.head }}" "${{ github.event.before }}" "$LINUX_WORKER_WORKFLOW"
+
+      - name: Get list of changed VI/CTL files
+        id: changed
+        env:
+          INPUT_FILES: ${{ github.event.inputs.files }}
+        run: |
+          cd head
+          if [ -n "$INPUT_FILES" ]; then
+            # Targeted run (e.g. a single VI requested from the VI Browser): diff just
+            # these paths instead of the whole range. Accept comma- or newline-
+            # separated paths and keep only .vi/.ctl entries.
+            FILES=$(printf '%s' "$INPUT_FILES" | tr ',' '\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | grep -iE '\.(vi|ctl)$' || true)
+          elif [ -n "${{ steps.shas.outputs.base }}" ]; then
+            FILES=$(git diff --name-only "${{ steps.shas.outputs.base }}" "${{ steps.shas.outputs.head }}" -- '*.vi' '*.ctl')
+          else
+            FILES=$(git diff-tree --no-commit-id -r --name-only "${{ steps.shas.outputs.head }}" -- '*.vi' '*.ctl')
+          fi
+          echo "files<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$FILES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Pull LabVIEW Linux container
+        run: docker pull ${{ env.LABVIEW_CONTAINER_IMAGE }}
+
+      - name: Run VIDiff inside Linux container
+        id: diff
+        env:
+          CHANGED_FILES: ${{ steps.changed.outputs.files }}
+        run: |
+          mkdir -p "${{ github.workspace }}/head/ci-out/vidiff"
+          docker run --rm \
+            -v "${{ github.workspace }}/head:/workspace" \
+            -v "${{ github.workspace }}/base:/workspace-base" \
+            -e CHANGED_FILES \
+            ${{ env.LABVIEW_CONTAINER_IMAGE }} \
+            bash /workspace/.github/labview/vidiff.sh \
+              /workspace-base /workspace /workspace/ci-out/vidiff
+        continue-on-error: true
+
+      - name: Save metadata
+        run: |
+          mkdir -p "${{ github.workspace }}/head/ci-out"
+          cat > "${{ github.workspace }}/head/ci-out/vidiff-meta.json" <<JSON
+          {
+            "head_sha":  "${{ steps.shas.outputs.head }}",
+            "base_sha":  "${{ steps.shas.outputs.base }}",
+            "pr_number": "${{ steps.shas.outputs.pr_number }}",
+            "platform":  "linux",
+            "outcome":   "${{ steps.diff.outcome }}"
+          }
+          JSON
+
+      - name: Upload VIDiff report artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: vidiff-linux-${{ steps.shas.outputs.head }}
+          path: |
+            ${{ github.workspace }}/head/ci-out/vidiff/
+            ${{ github.workspace }}/head/ci-out/vidiff-meta.json
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Fail if diff failed
+        if: steps.diff.outcome == 'failure'
+        run: exit 1
