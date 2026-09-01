@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "platform": "windows",
+  "version": "win-ae040c0c0256",
+  "labview_version": "2026",
+  "base_image": "ghcr.io/elijah286/labview-ci-with-containers-labview-base:2026",
+  "base_digest": "sha256:7ed693515128982951b1bf405a511caa344e1ec5551952bb9aa11654f77ed99a",
+  "seed_image": "ghcr.io/elijah286/labview-ci-with-containers-labview-base:2026",
+  "seed_digest": "sha256:7ed693515128982951b1bf405a511caa344e1ec5551952bb9aa11654f77ed99a",
+  "worker_layer": "seed-only-copy",
+  "copied_from_base": true,
+  "image_ref": "ghcr.io/elijah286/hal-mal-application-labview:win-ae040c0c0256",
+  "build_date": "2026-09-01T09:01:10Z",
+  "git_sha": "eb3159c9df4435ce516614e132b18cc6d7fb8489",
+  "run_url": "https://github.com/elijah286/HAL-MAL-Application/actions/runs/33489920868",
+  "vipc": [
+    {
+      "file": "ci-tooling.vipc",
+      "packages": [
+        "dataflow_g_lib_g_image-0.5.0.1",
+        "jki_lib_caraya-1.4.4.148",
+        "jki_vi_tester",
+        "ni_lib_junit_results_api-1.0.1.6",
+        "ni_lib_utf_junit_report-1.0.1.43"
+      ],
+      "present": true
+    }
+  ],
+  "nipkg_raw": "",
+  "nipkg_packages": []
+}
