@@ -270,13 +270,13 @@
       "platform": "linux",
       "defaultTag": "latest",
       "tag": "latest",
-      "ready": true,
+      "ready": false,
       "packages": [],
       "failed_packages": [],
-      "nipkg_ready": true,
+      "nipkg_ready": false,
       "nipkg_packages": [],
-      "labview_version": "2026",
-      "version": "linux-c6484cf4d66a"
+      "labview_version": "",
+      "version": "latest"
     }
   ]
 }
