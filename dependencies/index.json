@@ -250,19 +250,13 @@
       "platform": "windows",
       "defaultTag": "latest",
       "tag": "latest",
-      "ready": true,
-      "packages": [
-        "dataflow_g_lib_g_image-0.5.0.1",
-        "jki_lib_caraya-1.4.4.148",
-        "jki_vi_tester",
-        "ni_lib_junit_results_api-1.0.1.6",
-        "ni_lib_utf_junit_report-1.0.1.43"
-      ],
+      "ready": false,
+      "packages": [],
       "failed_packages": [],
-      "nipkg_ready": true,
+      "nipkg_ready": false,
       "nipkg_packages": [],
-      "labview_version": "2026",
-      "version": "win-b4e981c67dd2"
+      "labview_version": "",
+      "version": "latest"
     },
     {
       "key": "linux",
